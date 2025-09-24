@@ -27,18 +27,27 @@
         display:flex;
         justify-content:center;
         align-items:flex-start;
-        padding:0;               /* remove side padding on mobile */
         margin:0;
+        padding:0;
     }
 
     .container{
         background:var(--bg-card);
-        padding:20px;           /* keep a little breathing room */
+        padding:20px;
         border-radius:var(--radius);
         box-shadow:var(--shadow);
-        width:100%;             /* take the whole width of the viewport */
-        max-width:100%;         /* override the old 500px limit */
-        box-sizing:border-box;  /* include padding in the width */
+        width:90%;                 /* default width for larger screens */
+        max-width:600px;           /* keep a readable max on desktop */
+        box-sizing:border-box;
+    }
+
+    /* 2️⃣ Force full‑width on mobile/tablet */
+    @media (max-width:768px){
+        .container{
+            width:100%;           /* take the whole viewport width */
+            max-width:none;
+            border-radius:0;      /* optional – removes rounded corners on tiny screens */
+        }
     }
 
     h1,h2,h3{color:var(--color-dark);text-align:center;}
@@ -52,7 +61,7 @@
 
     .input-row{
         display:flex;
-        flex-wrap:wrap;          /* allow label+input to wrap on very narrow screens */
+        flex-wrap:wrap;
         justify-content:space-between;
         align-items:center;
         margin-bottom:15px;
@@ -60,18 +69,17 @@
 
     label{
         font-weight:bold;
-        flex:1 0 45%;            /* label takes up to ~45% of the row */
+        flex:1 0 45%;            /* label ≈45 % of the row */
         min-width:70px;
     }
 
     input[type="number"]{
         flex:1 0 45%;            /* input takes the rest */
-        width:auto;             /* let flex control the size */
-        max-width:120px;        /* keep a reasonable max on larger screens */
+        max-width:120px;
         padding:8px;
         border:1px solid #ccc;
         border-radius:var(--radius-sm);
-        font-size:16px;         /* ≥16 px stops iOS/Android auto‑zoom */
+        font-size:16px;          /* ≥16 px stops mobile auto‑zoom */
         text-align:right;
         -moz-appearance:textfield;
         box-sizing:border-box;
@@ -85,7 +93,7 @@
     input:focus{outline:2px solid #007bff;}
 
     .total-container,
-    .email-extra{
+    .extra-emails{
         text-align:center;
         margin-top:20px;
     }
@@ -113,9 +121,7 @@
         transition:background .3s;
     }
     button:hover{background:#c82333;}
-    .email-btn{
-        background:var(--color-report);
-    }
+    .email-btn{background:var(--color-report);}
     .email-btn:hover{background:#0056b3;}
 
     textarea{
@@ -127,8 +133,8 @@
     }
 
     .extra-emails{
-        margin-top:10px;
         display:none;
+        margin-top:10px;
     }
     .extra-emails input{
         width:100%;
@@ -185,13 +191,15 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    /* ---------- Configuration (unchanged from previous version) ---------- */
+
+    /* ---------- Email configuration (base‑64 obfuscation) ---------- */
     const DEFAULT_EMAIL_B64 = "aW5mb0Bmb3VudGFpbmZwZW5ob3NwaXRhbC5jb20="; // info@fountainpenhospital.com
     const decodeBase64 = str => decodeURIComponent(atob(str).split('').map(c =>
         '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
     ).join(''));
     const defaultEmail = decodeBase64(DEFAULT_EMAIL_B64);
 
+    /* ---------- Denominations & element references ---------- */
     const denominations = {
         hundreds:100, fifties:50, twenties:20, tens:10,
         fives:5, ones:1, quarters:0.25, dimes:0.10,
@@ -208,6 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form.addEventListener('submit', e => e.preventDefault());
 
+    /* ---------- Live total calculation ---------- */
     const calculateTotal = () => {
         let total = 0;
         inputs.forEach(inp => {
@@ -219,6 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return total;
     };
 
+    /* ---------- Build report (used for email) ---------- */
     const buildReport = () => {
         const lines = [];
         lines.push(`Cash Register Report – ${new Date().toLocaleString()}`);
@@ -237,7 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cnt = Math.max(parseFloat(document.getElementById(id).value)||0,0);
             if (cnt>0){
                 const val = denominations[id]*cnt;
-                grand+=val;
+                grand += val;
                 lines.push(`${cnt} × ${fmt(id)} = $${val.toFixed(2)}`);
             }
         });
@@ -246,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return lines.join('\n');
     };
 
+    /* ---------- Clear all fields ---------- */
     const clearAll = () => {
         inputs.forEach(i=>i.value='0');
         calculateTotal();
@@ -253,11 +264,13 @@ document.addEventListener('DOMContentLoaded', () => {
         addInp.value='';
     };
 
+    /* ---------- Show/hide extra‑email field ---------- */
     const toggleExtra = () => {
-        extraDiv.style.display = extraDiv.style.display==='none'?'block':'none';
-        if(extraDiv.style.display==='block') addInp.focus();
+        extraDiv.style.display = extraDiv.style.display==='none' ? 'block' : 'none';
+        if (extraDiv.style.display==='block') addInp.focus();
     };
 
+    /* ---------- Send email ---------- */
     const sendEmail = () => {
         const report = buildReport();
         const extra = addInp.value.split(',').map(e=>e.trim()).filter(e=>e).join(',');
@@ -267,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
     };
 
-    // ----- Input UX (kept exactly as you wanted) -----
+    /* ---------- Input UX (focus/blur) ---------- */
     inputs.forEach(inp => {
         inp.addEventListener('focus', () => {
             if (inp.value === '0') inp.value = '';
@@ -278,16 +291,18 @@ document.addEventListener('DOMContentLoaded', () => {
         inp.addEventListener('input', calculateTotal);
     });
 
+    /* ---------- Button actions ---------- */
     clearBtn.addEventListener('click', clearAll);
     emailBtn.addEventListener('click', () => {
+        // First click reveals extra‑recipients; second click sends
         if (extraDiv.style.display === 'none') {
-            toggleExtra();          // first click shows extra‑recipients field
+            toggleExtra();
         } else {
-            sendEmail();            // second click actually sends
+            sendEmail();
         }
     });
 
-    // Initial total
+    // Initialise total on load
     calculateTotal();
 });
 </script>
