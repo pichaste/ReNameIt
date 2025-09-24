@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cash Register Counter</title>
+<style>
+    :root{
+        --bg-main:#f4f4f4;
+        --bg-card:#fff;
+        --color-primary:#28a745;
+        --color-danger:#dc3545;
+        --color-report:#0069d9;
+        --color-dark:#333;
+        --color-muted:#666;
+        --shadow:0 0 10px rgba(0,0,0,.1);
+        --radius:8px;
+        --radius-sm:4px;
+    }
+    body{
+        font-family:Arial,Helvetica,sans-serif;
+        background:var(--bg-main);
+        display:flex;
+        justify-content:center;
+        align-items:flex-start;
+        padding:20px;
+        margin:0;
+    }
+    .container{
+        background:var(--bg-card);
+        padding:30px;
+        border-radius:var(--radius);
+        box-shadow:var(--shadow);
+        max-width:500px;
+        width:100%;
+    }
+    h1,h2,h3{color:var(--color-dark);text-align:center;}
+    p{color:var(--color-muted);text-align:center;margin-bottom:20px;}
+    .denomination-group{
+        border-bottom:1px solid #ddd;
+        padding-bottom:20px;
+        margin-bottom:20px;
+    }
+    .input-row{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:15px;
+    }
+    label{font-weight:bold;flex-grow:1;}
+    input[type="number"]{
+        width:80px;
+        padding:8px;
+        border:1px solid #ccc;
+        border-radius:var(--radius-sm);
+        font-size:1em;
+        text-align:right;
+        -moz-appearance:textfield;
+    }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button{
+        -webkit-appearance:none;margin:0;
+    }
+    input:focus{outline:2px solid #007bff;}
+    .total-container,
+    .email-extra{
+        text-align:center;
+        margin-top:20px;
+    }
+    #total{
+        font-size:2.5em;
+        font-weight:bold;
+        color:var(--color-primary);
+        background:#e9f5ee;
+        padding:10px 20px;
+        border-radius:6px;
+        display:inline-block;
+        min-width:150px;
+    }
+    button{
+        background:var(--color-danger);
+        color:#fff;
+        border:none;
+        padding:10px 20px;
+        font-size:1em;
+        border-radius:var(--radius-sm);
+        cursor:pointer;
+        margin-top:10px;
+        transition:background .3s;
+    }
+    button:hover{background:#c82333;}
+    .email-btn{
+        background:var(--color-report);
+    }
+    .email-btn:hover{background:#0056b3;}
+    textarea{
+        width:100%;
+        height:120px;
+        margin-top:10px;
+        font-family:monospace;
+        resize:none;
+    }
+    .extra-emails{
+        margin-top:10px;
+        display:none;
+    }
+    .extra-emails input{
+        width:90%;
+        padding:6px;
+        border:1px solid #ccc;
+        border-radius:var(--radius-sm);
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>Cash Register Counter</h1>
+    <p>Enter the number of bills and coins for each denomination to get the total.</p>
+
+    <form id="cash-form" autocomplete="off">
+        <!-- Bills -->
+        <div class="denomination-group">
+            <h2>Bills</h2>
+            <div class="input-row"><label for="hundreds">$100:</label><input type="number" id="hundreds" min="0" value="0"></div>
+            <div class="input-row"><label for="fifties">$50:</label><input type="number" id="fifties" min="0" value="0"></div>
+            <div class="input-row"><label for="twenties">$20:</label><input type="number" id="twenties" min="0" value="0"></div>
+            <div class="input-row"><label for="tens">$10:</label><input type="number" id="tens" min="0" value="0"></div>
+            <div class="input-row"><label for="fives">$5:</label><input type="number" id="fives" min="0" value="0"></div>
+            <div class="input-row"><label for="ones">$1:</label><input type="number" id="ones" min="0" value="0"></div>
+        </div>
+
+        <!-- Coins -->
+        <div class="denomination-group">
+            <h2>Coins</h2>
+            <div class="input-row"><label for="quarters">Quarters ($0.25):</label><input type="number" id="quarters" min="0" value="0"></div>
+            <div class="input-row"><label for="dimes">Dimes ($0.10):</label><input type="number" id="dimes" min="0" value="0"></div>
+            <div class="input-row"><label for="nickels">Nickels ($0.05):</label><input type="number" id="nickels" min="0" value="0"></div>
+            <div class="input-row"><label for="pennies">Pennies ($0.01):</label><input type="number" id="pennies" min="0" value="0"></div>
+        </div>
+
+        <!-- Totals & Controls -->
+        <div class="total-container">
+            <h3>Total Amount:</h3>
+            <div id="total">$0.00</div>
+            <br>
+            <button type="button" id="clear-button">Clear All</button>
+            <button type="button" id="email-button" class="email-btn">Email Report</button>
+        </div>
+
+        <!-- Extra email input (shown on demand) -->
+        <div class="extra-emails" id="extra-emails">
+            <label for="additional-emails">Additional recipients (comma‑separated):</label><br>
+            <input type="text" id="additional-emails" placeholder="example@domain.com, another@site.org">
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    /* -------------------- Configuration -------------------- */
+    // Default address is stored Base64‑encoded to keep it out of plain sight.
+    const DEFAULT_EMAIL_B64 = "aW5mb0Bmb3VudGFpbmZwZW5ob3NwaXRhbC5jb20="; // info@fountainpenhospital.com
+
+    const decodeBase64 = str => decodeURIComponent(atob(str).split('').map(c =>
+        '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(''));
+
+    const defaultEmail = decodeBase64(DEFAULT_EMAIL_B64);
+
+    /* -------------------- Core data -------------------- */
+    const denominations = {
+        hundreds: 100, fifties: 50, twenties: 20, tens: 10,
+        fives: 5, ones: 1, quarters: 0.25, dimes: 0.10,
+        nickels: 0.05, pennies: 0.01
+    };
+
+    const inputs   = document.querySelectorAll('input[type="number"]');
+    const totalEl  = document.getElementById('total');
+    const clearBtn = document.getElementById('clear-button');
+    const emailBtn = document.getElementById('email-button');
+    const extraDiv = document.getElementById('extra-emails');
+    const addInp   = document.getElementById('additional-emails');
+    const form     = document.getElementById('cash-form');
+
+    // Prevent accidental form submit (Enter key)
+    form.addEventListener('submit', e => e.preventDefault());
+
+    /* -------------------- Helper functions -------------------- */
+    const calculateTotal = () => {
+        let total = 0;
+        inputs.forEach(inp => {
+            const cnt = Math.max(parseFloat(inp.value) || 0, 0);
+            total += cnt * denominations[inp.id];
+        });
+        total = Math.round(total * 100) / 100; // cents precision
+        totalEl.textContent = `$${total.toFixed(2)}`;
+        return total;
+    };
+
+    const buildReport = () => {
+        const lines = [];
+        lines.push(`Cash Register Report – ${new Date().toLocaleString()}`);
+        lines.push('----------------------------------------');
+        let grand = 0;
+        const order = ['hundreds','fifties','twenties','tens','fives','ones',
+                       'quarters','dimes','nickels','pennies'];
+        order.forEach(id => {
+            const cnt = Math.max(parseFloat(document.getElementById(id).value) || 0, 0);
+            if (cnt > 0) {
+                const val = denominations[id] * cnt;
+                grand += val;
+                lines.push(`${cnt} × ${formatLabel(id)} = $${val.toFixed(2)}`);
+            }
+        });
+        lines.push('----------------------------------------');
+        lines.push(`TOTAL: $${grand.toFixed(2)}`);
+        return lines.join('\n');
+    };
+
+    const formatLabel = id => {
+        const map = {
+            hundreds:'$100 bill', fifties:'$50 bill', twenties:'$20 bill',
+            tens:'$10 bill', fives:'$5 bill', ones:'$1 bill',
+            quarters:'Quarter ($0.25)', dimes:'Dime ($0.10)',
+            nickels:'Nickel ($0.05)', pennies:'Penny ($0.01)'
+        };
+        return map[id] || id;
+    };
+
+    const clearAll = () => {
+        inputs.forEach(inp => inp.value = '0');
+        calculateTotal();
+        extraDiv.style.display = 'none';
+        addInp.value = '';
+    };
+
+    const toggleExtraEmails = () => {
+        extraDiv.style.display = extraDiv.style.display === 'none' ? 'block' : 'none';
+        if (extraDiv.style.display === 'block') {
+            addInp.focus();
+        }
+    };
+
+    const sendEmail = () => {
+        const report = buildReport();
+
+        // Gather extra recipients, trim whitespace and ignore empties
+        const extra = addInp.value.split(',')
+                     .map(e => e.trim())
+                     .filter(e => e.length > 0)
+                     .join(',');
+
+        // Build the mailto link
+        const subject = encodeURIComponent('Cash Register Report');
+        const body    = encodeURIComponent(report);
+        const to      = extra ? `${defaultEmail},${extra}` : defaultEmail;
+
+        const mailto = `mailto:${to}?subject=${subject}&body=${body}`;
+        window.location.href = mailto;
+    };
+
+    /* -------------------- UI interactions -------------------- */
+    // Input focus/blur behaviour (keep as you originally had)
+    inputs.forEach(inp => {
+        inp.addEventListener('focus', () => {
+            if (inp.value === '0') inp.value = '';
+        });
+        inp.addEventListener('blur', () => {
+            if (inp.value.trim() === '') inp.value = '0';
+        });
+        inp.addEventListener('input', calculateTotal);
+    });
+
+    clearBtn.addEventListener('click', clearAll);
+    emailBtn.addEventListener('click', () => {
+        // Show the extra‑recipients field first time, then send on second click
+        if (extraDiv.style.display === 'none') {
+            toggleExtraEmails();
+        } else {
+            sendEmail();
+        }
+    });
+
+    // Initial total on page load
+    calculateTotal();
+});
+</script>
+</body>
+</html>
