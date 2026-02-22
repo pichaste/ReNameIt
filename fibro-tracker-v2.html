@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>FibroFlow — Symptom Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ============================================================
+   ROOT & RESET
+   ============================================================ */
+:root {
+  --bg:        #0c0e14;
+  --s0:        #111318;
+  --s1:        #181b24;
+  --s2:        #1f2230;
+  --s3:        #272b3c;
+  --border:    rgba(255,255,255,0.07);
+  --border-md: rgba(255,255,255,0.13);
+
+  --text:      #eceaf6;
+  --muted:     #6e6d88;
+  --dim:       #3c3b52;
+
+  /* Accent palette — warm teal meets dusty rose */
+  --teal:      #5ccfbe;
+  --teal-dim:  rgba(92,207,190,0.15);
+  --rose:      #e8778a;
+  --rose-dim:  rgba(232,119,138,0.15);
+  --amber:     #f2a94e;
+  --amber-dim: rgba(242,169,78,0.15);
+  --lavender:  #9f8fe8;
+  --lav-dim:   rgba(159,143,232,0.15);
+  --sky:       #6ab0f5;
+  --sky-dim:   rgba(106,176,245,0.15);
+  --sage:      #7ec99a;
+  --sage-dim:  rgba(126,201,154,0.15);
+
+  --radius:    18px;
+  --radius-sm: 10px;
+  --radius-xs: 7px;
+  --shadow:    0 8px 40px rgba(0,0,0,0.5);
+  --shadow-sm: 0 2px 12px rgba(0,0,0,0.3);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-size: 15px;
+}
+
+/* Ambient background */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 55% at 10% 0%, rgba(92,207,190,0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 60% at 90% 100%, rgba(159,143,232,0.05) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(232,119,138,0.03) 0%, transparent 70%);
+}
+
+/* ============================================================
+   NAV
+   ============================================================ */
+.nav {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(12,14,20,0.88);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 20px;
+  height: 58px;
+  gap: 4px;
+}
+
+.nav-brand {
+  font-family: 'Fraunces', serif;
+  font-size: 1.25rem;
+  font-weight: 400;
+  color: var(--teal);
+  letter-spacing: -0.03em;
+  margin-right: auto;
+  display: flex; align-items: baseline; gap: 6px;
+}
+.nav-brand em {
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 300;
+}
+
+.nav-pill {
+  display: flex;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.nav-tab {
+  padding: 5px 14px;
+  border-radius: 24px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active {
+  background: var(--s3);
+  color: var(--teal);
+  border: 1px solid rgba(92,207,190,0.25);
+}
+
+/* ============================================================
+   PAGES
+   ============================================================ */
+.page { display: none; position: relative; z-index: 1; animation: fadeIn 0.3s ease; }
+.page.active { display: block; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.container {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 28px 18px 80px;
+}
+
+/* ============================================================
+   PAGE HEADER
+   ============================================================ */
+.page-header { margin-bottom: 28px; }
+
+.page-header h1 {
+  font-family: 'Fraunces', serif;
+  font-size: 2.1rem;
+  font-weight: 300;
+  letter-spacing: -0.04em;
+  color: var(--text);
+  line-height: 1.1;
+}
+.page-header h1 em { color: var(--teal); font-style: italic; }
+
+.page-header .sub {
+  margin-top: 5px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card {
+  background: var(--s0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+}
+
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.card-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.card-title .accent-bar {
+  width: 3px; height: 14px; border-radius: 2px;
+}
+
+/* ============================================================
+   SESSION TABS
+   ============================================================ */
+.session-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.session-card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.session-card:hover { background: var(--s2); }
+
+.session-card.active {
+  border-color: rgba(92,207,190,0.4);
+  background: linear-gradient(135deg, rgba(92,207,190,0.08), rgba(92,207,190,0.04));
+}
+
+.session-card .s-icon { font-size: 1.5rem; margin-bottom: 5px; display: block; }
+.session-card .s-name { font-size: 0.82rem; font-weight: 600; color: var(--muted); display: block; }
+.session-card.active .s-name { color: var(--teal); }
+.session-card .s-time { font-size: 0.68rem; color: var(--dim); display: block; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+.session-card .done-badge {
+  position: absolute; top: 7px; right: 7px;
+  width: 16px; height: 16px;
+  background: var(--teal);
+  border-radius: 50%;
+  font-size: 9px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--bg);
+  font-weight: 700;
+}
+
+/* ============================================================
+   WEATHER SECTION
+   ============================================================ */
+.weather-status-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.weather-status-bar .ws-icon { font-size: 1rem; }
+.weather-status-bar.success { border-color: rgba(126,201,154,0.3); color: var(--sage); background: var(--sage-dim); }
+.weather-status-bar.error   { border-color: rgba(232,119,138,0.3); color: var(--rose); background: var(--rose-dim); }
+
+.weather-toggle-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.weather-toggle-btn:hover { background: var(--s2); color: var(--text); }
+
+.weather-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.weather-tile {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 10px;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+.weather-tile:hover { border-color: var(--border-md); }
+
+.wt-icon { font-size: 1.2rem; margin-bottom: 4px; }
+.wt-label { font-size: 0.62rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px; }
+
+/* Read-only display value */
+.wt-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.84rem;
+  color: var(--text);
+  font-weight: 500;
+  min-height: 22px;
+  display: flex; align-items: center; justify-content: center;
+}
+.wt-value.empty { color: var(--dim); }
+
+/* Editable input */
+.wt-input {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--border-md);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  padding: 4px 6px;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.wt-input:focus { border-color: var(--teal); }
+.wt-input::placeholder { color: var(--dim); }
+
+/* ============================================================
+   SCALE CONTROLS
+   ============================================================ */
+.scale-group { margin-bottom: 18px; }
+
+.scale-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.scale-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  flex: 1;
+}
+
+.scale-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  padding: 2px 9px;
+  border-radius: 20px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  min-width: 36px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.scale-track {
+  display: flex; gap: 3px;
+}
+
+.scale-btn {
+  flex: 1;
+  height: 34px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1;
+}
+.scale-btn:hover { background: var(--s2); color: var(--text); }
+
+/* Colored selected states */
+.scale-btn.sel-1, .scale-btn.sel-2   { background: rgba(126,201,154,0.2);  border-color: rgba(126,201,154,0.5);  color: var(--sage); }
+.scale-btn.sel-3, .scale-btn.sel-4   { background: rgba(106,176,245,0.2);  border-color: rgba(106,176,245,0.5);  color: var(--sky); }
+.scale-btn.sel-5, .scale-btn.sel-6   { background: rgba(242,169,78,0.2);   border-color: rgba(242,169,78,0.5);   color: var(--amber); }
+.scale-btn.sel-7, .scale-btn.sel-8   { background: rgba(232,119,138,0.2);  border-color: rgba(232,119,138,0.5);  color: var(--rose); }
+.scale-btn.sel-9, .scale-btn.sel-10  { background: rgba(232,80,80,0.25);   border-color: rgba(232,80,80,0.55);   color: #f05050; }
+
+.scale-hints {
+  display: flex; justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.63rem;
+  color: var(--dim);
+  font-style: italic;
+}
+
+/* ============================================================
+   CHECKBOX GRIDS
+   ============================================================ */
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.check-tile {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.8rem;
+  color: var(--muted);
+  user-select: none;
+}
+.check-tile:hover { background: var(--s2); color: var(--text); border-color: var(--border-md); }
+.check-tile.on {
+  background: rgba(92,207,190,0.08);
+  border-color: rgba(92,207,190,0.3);
+  color: var(--text);
+}
+
+.check-box {
+  width: 15px; height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid var(--dim);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 700;
+  color: transparent;
+  transition: all 0.15s;
+}
+.check-tile.on .check-box {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--bg);
+}
+
+/* ============================================================
+   MOOD SELECTOR
+   ============================================================ */
+.mood-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.mood-tile {
+  padding: 10px 6px 8px;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+  user-select: none;
+}
+.mood-tile:hover { background: var(--s2); border-color: var(--border-md); }
+.mood-tile.on {
+  background: rgba(92,207,190,0.08);
+  border-color: rgba(92,207,190,0.4);
+}
+.mood-tile .me { font-size: 1.4rem; display: block; margin-bottom: 4px; line-height: 1; }
+.mood-tile .ml { font-size: 0.7rem; color: var(--muted); }
+.mood-tile.on .ml { color: var(--teal); }
+
+/* ============================================================
+   DIVIDER
+   ============================================================ */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+/* ============================================================
+   TEXTAREA
+   ============================================================ */
+.fibro-textarea {
+  width: 100%;
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 300;
+  padding: 13px;
+  resize: vertical;
+  min-height: 88px;
+  outline: none;
+  transition: border-color 0.2s;
+  line-height: 1.6;
+}
+.fibro-textarea:focus { border-color: rgba(92,207,190,0.4); }
+.fibro-textarea::placeholder { color: var(--dim); }
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 10px 22px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--teal), #3ab5ac);
+  color: var(--bg);
+  box-shadow: 0 4px 18px rgba(92,207,190,0.25);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(92,207,190,0.35); }
+.btn-primary:active { transform: none; }
+
+.btn-ghost {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.btn-ghost:hover { background: var(--s2); color: var(--text); border-color: var(--border-md); }
+
+.btn-danger {
+  background: var(--s1);
+  border: 1px solid rgba(232,119,138,0.3);
+  color: var(--rose);
+}
+.btn-danger:hover { background: var(--rose-dim); }
+
+.btn-sm { padding: 7px 14px; font-size: 0.78rem; }
+.btn-xs { padding: 5px 10px; font-size: 0.73rem; }
+
+.btn-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 20px;
+  align-items: center;
+}
+
+/* ============================================================
+   SECTION LABEL
+   ============================================================ */
+.section-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.section-label .hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 300;
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  background: var(--s2);
+  border: 1px solid var(--border-md);
+  color: var(--text);
+  padding: 11px 22px;
+  border-radius: 30px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  z-index: 1000;
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.success { border-color: rgba(126,201,154,0.4); color: var(--sage); }
+.toast.error   { border-color: rgba(232,119,138,0.4); color: var(--rose); }
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.stat-box {
+  background: var(--s0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px 14px;
+  text-align: center;
+}
+.stat-val {
+  font-family: 'Fraunces', serif;
+  font-size: 1.9rem;
+  font-weight: 300;
+  color: var(--teal);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-lbl { font-size: 0.67rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.07em; }
+
+.dash-controls {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.ctrl-group {
+  display: flex; align-items: center; gap: 6px;
+}
+.ctrl-label {
+  font-size: 0.7rem; color: var(--dim);
+  font-weight: 600; letter-spacing: 0.07em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.ctrl-select {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 0.8rem;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer; outline: none;
+  transition: border-color 0.2s;
+}
+.ctrl-select:focus { border-color: var(--teal); }
+
+/* Filter chips */
+.chip-section-label {
+  font-size: 0.68rem; color: var(--dim);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-bottom: 6px; margin-top: 14px;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+
+.chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--s1);
+  color: var(--muted);
+  font-size: 0.73rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.chip:hover { background: var(--s2); color: var(--text); }
+.chip.on { border-color: rgba(92,207,190,0.4); background: rgba(92,207,190,0.07); color: var(--teal); }
+.chip .cdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.chart-wrap {
+  background: var(--s0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 14px;
+  margin-bottom: 12px;
+}
+.chart-label {
+  font-size: 0.68rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.chart-label .accent-bar { width: 3px; height: 13px; border-radius: 2px; }
+
+.no-data {
+  text-align: center; padding: 64px 20px;
+  color: var(--dim);
+}
+.no-data .ndi { font-size: 3rem; margin-bottom: 14px; opacity: 0.5; }
+.no-data p { font-size: 0.88rem; max-width: 280px; margin: 0 auto; line-height: 1.7; }
+
+/* ============================================================
+   DATA PAGE
+   ============================================================ */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+}
+.drop-zone:hover, .drop-zone.drag { border-color: rgba(92,207,190,0.4); background: var(--teal-dim); color: var(--teal); }
+.drop-zone .dz-icon { font-size: 2.2rem; margin-bottom: 8px; display: block; }
+.drop-zone .dz-hint { font-size: 0.72rem; color: var(--dim); margin-top: 6px; }
+
+.data-info {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: 0.83rem;
+  color: var(--muted);
+  line-height: 1.9;
+}
+.data-info strong { color: var(--text); }
+
+.info-banner {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--teal-dim);
+  border: 1px solid rgba(92,207,190,0.25);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 0.8rem;
+  color: var(--teal);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.info-banner .ib-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 520px) {
+  .container { padding: 18px 12px 70px; }
+  .page-header h1 { font-size: 1.7rem; }
+  .nav-brand { font-size: 1.1rem; }
+  .nav-tab { padding: 5px 10px; font-size: 0.73rem; }
+  .weather-grid { grid-template-columns: repeat(3, 1fr); }
+  .check-grid { grid-template-columns: repeat(2, 1fr); }
+  .mood-row { grid-template-columns: repeat(4, 1fr); }
+  .dash-stats { grid-template-columns: repeat(3, 1fr); }
+  .scale-btn { height: 30px; font-size: 0.65rem; }
+  .btn { padding: 9px 16px; font-size: 0.8rem; }
+}
+
+@media (max-width: 380px) {
+  .weather-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   SCROLL HELPERS
+   ============================================================ */
+.scroll-mt { scroll-margin-top: 80px; }
+
+/* Collapsible section */
+.collapse-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.8rem; color: var(--muted);
+  cursor: pointer; background: none; border: none;
+  font-family: 'Outfit', sans-serif;
+  padding: 0; transition: color 0.2s;
+}
+.collapse-toggle:hover { color: var(--text); }
+.collapse-toggle .ct-arrow { transition: transform 0.2s; font-size: 0.7rem; }
+.collapse-toggle.open .ct-arrow { transform: rotate(90deg); }
+
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     NAVIGATION
+     ============================================================ -->
+<nav class="nav">
+  <div class="nav-brand">FibroFlow <em>symptom tracker</em></div>
+  <div class="nav-pill">
+    <button class="nav-tab active" onclick="showPage('log', this)">📝 Log</button>
+    <button class="nav-tab" onclick="showPage('dashboard', this)">📊 Dashboard</button>
+    <button class="nav-tab" onclick="showPage('data', this)">💾 Data</button>
+  </div>
+</nav>
+
+<!-- ============================================================
+     LOG PAGE
+     ============================================================ -->
+<div id="page-log" class="page active">
+<div class="container">
+
+  <div class="page-header">
+    <h1>Daily <em>Log</em></h1>
+    <div class="sub" id="log-date"></div>
+  </div>
+
+  <!-- Session selector -->
+  <div class="session-row" id="session-row">
+    <div class="session-card active" id="stab-morning" onclick="setSession('morning')">
+      <span class="s-icon">🌅</span>
+      <span class="s-name">Morning</span>
+      <span class="s-time">6am – 12pm</span>
+    </div>
+    <div class="session-card" id="stab-afternoon" onclick="setSession('afternoon')">
+      <span class="s-icon">☀️</span>
+      <span class="s-name">Afternoon</span>
+      <span class="s-time">12pm – 6pm</span>
+    </div>
+    <div class="session-card" id="stab-evening" onclick="setSession('evening')">
+      <span class="s-icon">🌙</span>
+      <span class="s-name">Evening</span>
+      <span class="s-time">6pm – 12am</span>
+    </div>
+  </div>
+
+  <!-- ── WEATHER CARD ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="accent-bar" style="background:var(--sky)"></div>
+        Environmental Data
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-ghost btn-xs" onclick="refreshWeather()">🔄 Refresh</button>
+        <button class="collapse-toggle" id="manual-toggle" onclick="toggleManualWeather()">
+          ✏️ Manual <span class="ct-arrow">▶</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="weather-status-bar" id="weather-status-bar">
+      <span class="ws-icon">📍</span>
+      <span id="weather-status-text">Requesting location…</span>
+    </div>
+
+    <!-- Auto display -->
+    <div id="weather-auto-display">
+      <div class="weather-grid">
+        <div class="weather-tile"><div class="wt-icon">🌡️</div><div class="wt-label">Temp</div><div class="wt-value empty" id="wd-temp">—</div></div>
+        <div class="weather-tile"><div class="wt-icon">💧</div><div class="wt-label">Humidity</div><div class="wt-value empty" id="wd-hum">—</div></div>
+        <div class="weather-tile"><div class="wt-icon">🌧️</div><div class="wt-label">Precip</div><div class="wt-value empty" id="wd-precip">—</div></div>
+        <div class="weather-tile"><div class="wt-icon">📊</div><div class="wt-label">Pressure</div><div class="wt-value empty" id="wd-pres">—</div></div>
+        <div class="weather-tile"><div class="wt-icon">💨</div><div class="wt-label">Wind</div><div class="wt-value empty" id="wd-wind">—</div></div>
+        <div class="weather-tile"><div class="wt-icon">☁️</div><div class="wt-label">Cloud</div><div class="wt-value empty" id="wd-cloud">—</div></div>
+        <div class="weather-tile"><div class="wt-icon">🌕</div><div class="wt-label">Moon</div><div class="wt-value empty" id="wd-moon">—</div></div>
+        <div class="weather-tile"><div class="wt-icon">⛰️</div><div class="wt-label">Altitude</div><div class="wt-value empty" id="wd-alt">—</div></div>
+      </div>
+    </div>
+
+    <!-- Manual override (hidden by default) -->
+    <div id="weather-manual" style="display:none;margin-top:12px;">
+      <div style="font-size:0.72rem;color:var(--muted);margin-bottom:8px;font-style:italic;">Enter values manually — these will override auto-fetched data.</div>
+      <div class="weather-grid">
+        <div class="weather-tile"><div class="wt-icon">🌡️</div><div class="wt-label">Temp (°F)</div><input class="wt-input" id="wm-temp" type="number" placeholder="e.g. 72"></div>
+        <div class="weather-tile"><div class="wt-icon">💧</div><div class="wt-label">Humidity %</div><input class="wt-input" id="wm-hum" type="number" placeholder="e.g. 60"></div>
+        <div class="weather-tile"><div class="wt-icon">🌧️</div><div class="wt-label">Precip (in)</div><input class="wt-input" id="wm-precip" type="number" step="0.01" placeholder="e.g. 0.2"></div>
+        <div class="weather-tile"><div class="wt-icon">📊</div><div class="wt-label">Pressure hPa</div><input class="wt-input" id="wm-pres" type="number" placeholder="e.g. 1013"></div>
+        <div class="weather-tile"><div class="wt-icon">💨</div><div class="wt-label">Wind mph</div><input class="wt-input" id="wm-wind" type="number" placeholder="e.g. 10"></div>
+        <div class="weather-tile"><div class="wt-icon">☁️</div><div class="wt-label">Cloud %</div><input class="wt-input" id="wm-cloud" type="number" placeholder="e.g. 40"></div>
+        <div class="weather-tile"><div class="wt-icon">⛰️</div><div class="wt-label">Altitude m</div><input class="wt-input" id="wm-alt" type="number" placeholder="e.g. 300"></div>
+        <div class="weather-tile"><div class="wt-icon">😤</div><div class="wt-label">Air Quality</div><input class="wt-input" id="wm-aqi" type="number" placeholder="AQI 0-500"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAIN CARD ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="accent-bar" style="background:var(--rose)"></div>
+        Pain Assessment
+      </div>
+    </div>
+
+    <div class="section-label">Where does it hurt? <span class="hint">select all that apply</span></div>
+    <div class="check-grid" id="cg-locations">
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Head / Migraines</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Neck & Shoulders</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Upper Back</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Lower Back</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Chest / Ribs</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Arms / Elbows</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Hands / Wrists</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Hips / Pelvis</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Legs / Knees</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Feet / Ankles</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Widespread / All Over</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">Type of pain <span class="hint">select all that apply</span></div>
+    <div class="check-grid" id="cg-paintypes">
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Burning</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Stabbing</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Aching / Dull</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Throbbing</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Shooting</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Tingling / Pins & Needles</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Numbness</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Muscle Spasms</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Deep Aching Tenderness</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Stiffness</div>
+    </div>
+
+    <hr class="divider">
+
+    <div id="sg-pain-overall" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Overall Pain Level</span><span class="scale-badge" id="sb-pain-overall">—</span></div>
+      <div class="scale-track" id="st-pain-overall"></div>
+      <div class="scale-hints"><span>No pain at all</span><span>Crying, unbearable</span></div>
+    </div>
+    <div id="sg-fatigue" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Fatigue / Exhaustion</span><span class="scale-badge" id="sb-fatigue">—</span></div>
+      <div class="scale-track" id="st-fatigue"></div>
+      <div class="scale-hints"><span>Full of energy</span><span>Completely exhausted</span></div>
+    </div>
+    <div id="sg-stiffness" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Body Stiffness</span><span class="scale-badge" id="sb-stiffness">—</span></div>
+      <div class="scale-track" id="st-stiffness"></div>
+      <div class="scale-hints"><span>Flexible & loose</span><span>Cannot move freely</span></div>
+    </div>
+    <div id="sg-sleep" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Sleep Quality (last night)</span><span class="scale-badge" id="sb-sleep">—</span></div>
+      <div class="scale-track" id="st-sleep"></div>
+      <div class="scale-hints"><span>Slept perfectly</span><span>No sleep at all</span></div>
+    </div>
+    <div id="sg-brainfog" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Brain Fog / Fibro Fog</span><span class="scale-badge" id="sb-brainfog">—</span></div>
+      <div class="scale-track" id="st-brainfog"></div>
+      <div class="scale-hints"><span>Thinking clearly</span><span>Severely foggy</span></div>
+    </div>
+    <div id="sg-sensitivity" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Sensory Sensitivity (light, sound, touch)</span><span class="scale-badge" id="sb-sensitivity">—</span></div>
+      <div class="scale-track" id="st-sensitivity"></div>
+      <div class="scale-hints"><span>Normal sensitivity</span><span>Extremely sensitive</span></div>
+    </div>
+  </div>
+
+  <!-- ── MENTAL CARD ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="accent-bar" style="background:var(--lavender)"></div>
+        Mental & Emotional State
+      </div>
+    </div>
+
+    <div class="section-label">How are you feeling right now?</div>
+    <div class="mood-row" id="mood-row">
+      <div class="mood-tile" onclick="pickMood(this,'happy')"><span class="me">😊</span><span class="ml">Happy</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'calm')"><span class="me">😌</span><span class="ml">Calm</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'hopeful')"><span class="me">🌟</span><span class="ml">Hopeful</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'neutral')"><span class="me">😐</span><span class="ml">Neutral</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'tired')"><span class="me">😴</span><span class="ml">Tired</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'sad')"><span class="me">😢</span><span class="ml">Sad</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'anxious')"><span class="me">😰</span><span class="ml">Anxious</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'overwhelmed')"><span class="me">😵</span><span class="ml">Overwhelmed</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'frustrated')"><span class="me">😠</span><span class="ml">Frustrated</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'depressed')"><span class="me">🌧️</span><span class="ml">Depressed</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'lonely')"><span class="me">🕊️</span><span class="ml">Lonely</span></div>
+      <div class="mood-tile" onclick="pickMood(this,'grateful')"><span class="me">🙏</span><span class="ml">Grateful</span></div>
+    </div>
+
+    <hr class="divider">
+
+    <div id="sg-depression" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Depression Level</span><span class="scale-badge" id="sb-depression">—</span></div>
+      <div class="scale-track" id="st-depression"></div>
+      <div class="scale-hints"><span>Not at all</span><span>Severely depressed</span></div>
+    </div>
+    <div id="sg-anxiety" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Anxiety Level</span><span class="scale-badge" id="sb-anxiety">—</span></div>
+      <div class="scale-track" id="st-anxiety"></div>
+      <div class="scale-hints"><span>Feeling at peace</span><span>Severe anxiety</span></div>
+    </div>
+    <div id="sg-stress" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Stress Level</span><span class="scale-badge" id="sb-stress">—</span></div>
+      <div class="scale-track" id="st-stress"></div>
+      <div class="scale-hints"><span>No stress</span><span>Extreme stress</span></div>
+    </div>
+    <div id="sg-overwhelm" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Feeling Overwhelmed</span><span class="scale-badge" id="sb-overwhelm">—</span></div>
+      <div class="scale-track" id="st-overwhelm"></div>
+      <div class="scale-hints"><span>Coping well</span><span>Completely overwhelmed</span></div>
+    </div>
+    <div id="sg-isolation" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Social Isolation / Withdrawal</span><span class="scale-badge" id="sb-isolation">—</span></div>
+      <div class="scale-track" id="st-isolation"></div>
+      <div class="scale-hints"><span>Socially engaged</span><span>Fully withdrawn</span></div>
+    </div>
+  </div>
+
+  <!-- ── OTHER SYMPTOMS CARD ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <div class="accent-bar" style="background:var(--sage)"></div>
+        Other Symptoms & Wellbeing
+      </div>
+    </div>
+
+    <div class="section-label">Additional symptoms today <span class="hint">select all that apply</span></div>
+    <div class="check-grid" id="cg-other">
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Nausea</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Digestive Issues / IBS</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Dizziness / Vertigo</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Heart Palpitations</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>TMJ / Jaw Pain</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Restless Legs</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Dry Eyes / Dry Mouth</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Temperature Dysregulation</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Swelling / Puffiness</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Skin Hypersensitivity</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Headache</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Vision Changes</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Tinnitus</div>
+      <div class="check-tile" onclick="toggleTile(this)"><div class="check-box">✓</div>Cognitive Confusion</div>
+    </div>
+
+    <hr class="divider">
+
+    <div id="sg-activity" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Activity Level Today</span><span class="scale-badge" id="sb-activity">—</span></div>
+      <div class="scale-track" id="st-activity"></div>
+      <div class="scale-hints"><span>Very active</span><span>Bed-bound all day</span></div>
+    </div>
+    <div id="sg-medication" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Medication Effectiveness</span><span class="scale-badge" id="sb-medication">—</span></div>
+      <div class="scale-track" id="st-medication"></div>
+      <div class="scale-hints"><span>Very effective</span><span>No relief at all</span></div>
+    </div>
+    <div id="sg-flare" class="scale-group">
+      <div class="scale-head"><span class="scale-name">Flare-Up Severity</span><span class="scale-badge" id="sb-flare">—</span></div>
+      <div class="scale-track" id="st-flare"></div>
+      <div class="scale-hints"><span>No flare-up</span><span>Severe flare-up</span></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">Journal / Notes</div>
+    <textarea class="fibro-textarea" id="daily-notes" placeholder="How are you feeling overall? Any potential triggers, changes in routine, new medications, or observations you want to remember…"></textarea>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="saveEntry()">💾 Save This Session</button>
+    <button class="btn btn-ghost btn-sm" onclick="resetForm()">↩ Reset Form</button>
+  </div>
+
+</div>
+</div>
+
+<!-- ============================================================
+     DASHBOARD PAGE
+     ============================================================ -->
+<div id="page-dashboard" class="page">
+<div class="container">
+  <div class="page-header">
+    <h1><em>Dashboard</em></h1>
+    <div class="sub">Symptoms & environment over time</div>
+  </div>
+
+  <div id="dash-no-data" class="no-data">
+    <div class="ndi">🌿</div>
+    <p>No entries yet. Start logging in the Log tab and your trends will appear here.</p>
+  </div>
+
+  <div id="dash-content" style="display:none;">
+    <div class="dash-stats" id="dash-stats"></div>
+
+    <div class="dash-controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label">Range</span>
+        <select class="ctrl-select" id="range-sel" onchange="renderDash()">
+          <option value="7">7 days</option>
+          <option value="14">14 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="60">60 days</option>
+          <option value="90">90 days</option>
+          <option value="0">All time</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <span class="ctrl-label">Session</span>
+        <select class="ctrl-select" id="session-sel" onchange="renderDash()">
+          <option value="all">All sessions</option>
+          <option value="morning">Morning</option>
+          <option value="afternoon">Afternoon</option>
+          <option value="evening">Evening</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="chip-section-label">Physical Symptoms</div>
+    <div class="chip-row" id="chips-physical"></div>
+    <div class="chip-section-label">Mental & Emotional</div>
+    <div class="chip-row" id="chips-mental"></div>
+    <div class="chip-section-label">Environmental</div>
+    <div class="chip-row" id="chips-env"></div>
+
+    <div style="margin-top:20px;">
+      <div class="chart-wrap">
+        <div class="chart-label"><div class="accent-bar" style="background:var(--rose)"></div>Physical Symptoms</div>
+        <canvas id="chart-physical" height="110"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-label"><div class="accent-bar" style="background:var(--lavender)"></div>Mental & Emotional</div>
+        <canvas id="chart-mental" height="100"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-label"><div class="accent-bar" style="background:var(--sky)"></div>Environmental Conditions</div>
+        <canvas id="chart-env" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================
+     DATA PAGE
+     ============================================================ -->
+<div id="page-data" class="page">
+<div class="container">
+  <div class="page-header">
+    <h1>Your <em>Data</em></h1>
+    <div class="sub">Import, export, and manage your records</div>
+  </div>
+
+  <div class="info-banner">
+    <span class="ib-icon">🔒</span>
+    <span>All data is stored <strong>on your device only</strong> — nothing is sent to any server. Export your file regularly and re-import it when you open the app in a new session to restore your history.</span>
+  </div>
+
+  <!-- Import -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="accent-bar" style="background:var(--sky)"></div>Import Data</div>
+    </div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-inp').click()">
+      <span class="dz-icon">📂</span>
+      Click to load your FibroFlow file<br>
+      <span class="dz-hint">Drag &amp; drop or click · Accepts .json or .csv</span>
+    </div>
+    <input type="file" id="file-inp" accept=".json,.csv" style="display:none" onchange="importFile(event)">
+  </div>
+
+  <!-- Export -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="accent-bar" style="background:var(--sage)"></div>Export Data</div>
+    </div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+      <strong style="color:var(--text)">JSON</strong> — Save and reload in FibroFlow to continue tracking. Preserves all data.<br>
+      <strong style="color:var(--text)">CSV</strong> — Open in Excel, Google Sheets, or any spreadsheet app for custom analysis.
+    </p>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="exportJSON()">⬇️ Export as JSON</button>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📊 Export as CSV</button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="accent-bar"></div>Current Session Summary</div>
+    </div>
+    <div class="data-info" id="data-summary">No entries logged yet.</div>
+  </div>
+
+  <!-- Danger -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><div class="accent-bar" style="background:var(--rose)"></div>Danger Zone</div>
+    </div>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">Clear all in-session data. This does not affect previously exported files.</p>
+    <button class="btn btn-danger btn-sm" onclick="clearAll()">🗑️ Clear All Session Data</button>
+  </div>
+
+</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ---------------------------------------------------------------
+   CONSTANTS & STATE
+   --------------------------------------------------------------- */
+const SCALES = [
+  { id:'pain-overall', label:'Overall Pain' },
+  { id:'fatigue',      label:'Fatigue' },
+  { id:'stiffness',    label:'Stiffness' },
+  { id:'sleep',        label:'Sleep Quality' },
+  { id:'brainfog',     label:'Brain Fog' },
+  { id:'sensitivity',  label:'Sensory Sensitivity' },
+  { id:'depression',   label:'Depression' },
+  { id:'anxiety',      label:'Anxiety' },
+  { id:'stress',       label:'Stress' },
+  { id:'overwhelm',    label:'Overwhelm' },
+  { id:'isolation',    label:'Social Isolation' },
+  { id:'activity',     label:'Activity Level' },
+  { id:'medication',   label:'Medication Effectiveness' },
+  { id:'flare',        label:'Flare-Up Severity' },
+];
+
+const FILTER_CFG = [
+  // group: physical
+  { key:'painOverall', label:'Overall Pain',     color:'#e8778a', group:'physical' },
+  { key:'fatigue',     label:'Fatigue',          color:'#f2a94e', group:'physical' },
+  { key:'stiffness',   label:'Stiffness',        color:'#fbbf24', group:'physical' },
+  { key:'brainfog',    label:'Brain Fog',        color:'#9f8fe8', group:'physical' },
+  { key:'sleep',       label:'Sleep Quality',    color:'#6ab0f5', group:'physical' },
+  { key:'sensitivity', label:'Sensory Sensitivity', color:'#c084fc', group:'physical' },
+  { key:'flare',       label:'Flare-Up',         color:'#f87171', group:'physical' },
+  { key:'activity',    label:'Activity Level',   color:'#94a3b8', group:'physical' },
+  // group: mental
+  { key:'depression',  label:'Depression',       color:'#818cf8', group:'mental' },
+  { key:'anxiety',     label:'Anxiety',          color:'#5ccfbe', group:'mental' },
+  { key:'stress',      label:'Stress',           color:'#7ec99a', group:'mental' },
+  { key:'overwhelm',   label:'Overwhelm',        color:'#2dd4bf', group:'mental' },
+  { key:'isolation',   label:'Social Isolation', color:'#a5b4fc', group:'mental' },
+  // group: env
+  { key:'temp',        label:'Temperature',      color:'#fb923c', group:'env', raw:'tempRaw' },
+  { key:'humidity',    label:'Humidity',         color:'#38bdf8', group:'env', raw:'humidityRaw' },
+  { key:'pressure',    label:'Pressure',         color:'#a3e635', group:'env', raw:'pressureRaw' },
+  { key:'precip',      label:'Precipitation',    color:'#7dd3fc', group:'env', raw:'precipRaw' },
+];
+
+let appData = { entries: [] };
+let currentSession = 'morning';
+let selectedMood = '';
+let weatherData = {};
+let manualWeatherVisible = false;
+
+// filter state
+let filters = {};
+FILTER_CFG.forEach(f => filters[f.key] = !f.group.startsWith('env')); // env off by default
+
+let charts = {};
+
+/* ---------------------------------------------------------------
+   INIT
+   --------------------------------------------------------------- */
+window.addEventListener('load', () => {
+  updateDateDisplay();
+  buildScales();
+  autoSession();
+  fetchWeather();
+  restoreSession();
+  updateSummary();
+});
+
+function updateDateDisplay() {
+  document.getElementById('log-date').textContent = new Date().toLocaleDateString('en-US', {
+    weekday:'long', year:'numeric', month:'long', day:'numeric'
+  });
+}
+
+function autoSession() {
+  const h = new Date().getHours();
+  if (h >= 6 && h < 12) setSession('morning');
+  else if (h >= 12 && h < 18) setSession('afternoon');
+  else setSession('evening');
+}
+
+/* ---------------------------------------------------------------
+   SCALE BUILDING
+   --------------------------------------------------------------- */
+function buildScales() {
+  SCALES.forEach(s => {
+    const track = document.getElementById('st-' + s.id);
+    if (!track) return;
+    for (let i = 1; i <= 10; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'scale-btn';
+      btn.textContent = i;
+      btn.dataset.v = i;
+      btn.onclick = () => pickScale(s.id, i);
+      track.appendChild(btn);
+    }
+  });
+}
+
+function pickScale(id, val) {
+  const track = document.getElementById('st-' + id);
+  if (!track) return;
+  track.querySelectorAll('.scale-btn').forEach(b => {
+    b.className = 'scale-btn' + (parseInt(b.dataset.v) === val ? ` sel-${val}` : '');
+  });
+  const badge = document.getElementById('sb-' + id);
+  if (badge) {
+    badge.textContent = val;
+    badge.style.color = getScaleColor(val);
+    badge.style.borderColor = getScaleColor(val) + '66';
+    badge.style.background = getScaleColor(val) + '18';
+  }
+}
+
+function getScaleColor(v) {
+  if (v <= 2) return '#7ec99a';
+  if (v <= 4) return '#6ab0f5';
+  if (v <= 6) return '#f2a94e';
+  if (v <= 8) return '#e8778a';
+  return '#f05050';
+}
+
+function getScaleVal(id) {
+  const track = document.getElementById('st-' + id);
+  if (!track) return null;
+  const sel = track.querySelector('[class*="sel-"]');
+  return sel ? parseInt(sel.dataset.v) : null;
+}
+
+function resetScales() {
+  SCALES.forEach(s => {
+    const track = document.getElementById('st-' + s.id);
+    if (track) track.querySelectorAll('.scale-btn').forEach(b => b.className = 'scale-btn');
+    const badge = document.getElementById('sb-' + s.id);
+    if (badge) { badge.textContent = '—'; badge.style.color = ''; badge.style.borderColor = ''; badge.style.background = ''; }
+  });
+}
+
+/* ---------------------------------------------------------------
+   CHECKBOXES
+   --------------------------------------------------------------- */
+function toggleTile(el) { el.classList.toggle('on'); }
+
+function getChecked(id) {
+  return [...document.getElementById(id).querySelectorAll('.check-tile.on')]
+    .map(el => el.textContent.trim());
+}
+
+function resetChecked(id) {
+  document.getElementById(id).querySelectorAll('.check-tile.on').forEach(el => el.classList.remove('on'));
+}
+
+/* ---------------------------------------------------------------
+   MOOD
+   --------------------------------------------------------------- */
+function pickMood(el, mood) {
+  document.querySelectorAll('.mood-tile').forEach(m => m.classList.remove('on'));
+  el.classList.add('on');
+  selectedMood = mood;
+}
+
+/* ---------------------------------------------------------------
+   SESSION
+   --------------------------------------------------------------- */
+function setSession(s) {
+  currentSession = s;
+  ['morning','afternoon','evening'].forEach(x => {
+    document.getElementById('stab-' + x).classList.toggle('active', x === s);
+  });
+}
+
+/* ---------------------------------------------------------------
+   WEATHER
+   --------------------------------------------------------------- */
+function setWeatherStatus(msg, type = '') {
+  const bar = document.getElementById('weather-status-bar');
+  const txt = document.getElementById('weather-status-text');
+  bar.className = 'weather-status-bar ' + type;
+  txt.textContent = msg;
+}
+
+function updateWeatherDisplays(w) {
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val || '—';
+    el.classList.toggle('empty', !val);
+  };
+  set('wd-temp', w.temp);
+  set('wd-hum', w.humidity);
+  set('wd-precip', w.precip);
+  set('wd-pres', w.pressure);
+  set('wd-wind', w.wind);
+  set('wd-cloud', w.cloud);
+  set('wd-moon', w.moon);
+  set('wd-alt', w.altitude);
+}
+
+async function fetchWeather() {
+  if (!navigator.geolocation) {
+    setWeatherStatus('Geolocation unavailable — use manual entry ✏️', 'error');
+    return;
+  }
+  setWeatherStatus('Requesting location…', '');
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lon, altitude } = pos.coords;
+    setWeatherStatus('Fetching weather data…', '');
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+        `&current=temperature_2m,relative_humidity_2m,precipitation,surface_pressure,wind_speed_10m,cloud_cover` +
+        `&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('API error');
+      const data = await res.json();
+      const c = data.current;
+
+      const mp = moonPhase();
+      weatherData = {
+        lat, lon,
+        altitude: altitude != null ? Math.round(altitude) + ' m' : 'N/A',
+        temp: c.temperature_2m.toFixed(1) + '°F',       tempRaw: c.temperature_2m,
+        humidity: c.relative_humidity_2m + '%',          humidityRaw: c.relative_humidity_2m,
+        precip: c.precipitation + ' in',                 precipRaw: c.precipitation,
+        pressure: c.surface_pressure.toFixed(0) + ' hPa', pressureRaw: c.surface_pressure,
+        wind: c.wind_speed_10m.toFixed(1) + ' mph',
+        cloud: c.cloud_cover + '%',
+        moon: mp.label, moonVal: mp.val,
+        source: 'auto',
+      };
+      updateWeatherDisplays(weatherData);
+      setWeatherStatus('✅  Environmental data loaded automatically', 'success');
+    } catch(e) {
+      weatherData = { lat, lon, altitude: altitude != null ? Math.round(altitude) + ' m' : 'N/A', source: 'partial' };
+      updateWeatherDisplays(weatherData);
+      setWeatherStatus('⚠️  Could not reach weather API — try manual entry', 'error');
+    }
+  }, () => {
+    setWeatherStatus('Location denied — use manual entry ✏️ above', 'error');
+  }, { timeout: 8000 });
+}
+
+function refreshWeather() { weatherData = {}; updateWeatherDisplays({}); fetchWeather(); }
+
+function toggleManualWeather() {
+  manualWeatherVisible = !manualWeatherVisible;
+  document.getElementById('weather-manual').style.display = manualWeatherVisible ? 'block' : 'none';
+  const btn = document.getElementById('manual-toggle');
+  btn.classList.toggle('open', manualWeatherVisible);
+}
+
+function getManualWeather() {
+  const g = id => {
+    const el = document.getElementById(id);
+    return el && el.value.trim() !== '' ? parseFloat(el.value) : null;
+  };
+  return {
+    tempRaw:     g('wm-temp'),
+    humidityRaw: g('wm-hum'),
+    precipRaw:   g('wm-precip'),
+    pressureRaw: g('wm-pres'),
+    windRaw:     g('wm-wind'),
+    cloudRaw:    g('wm-cloud'),
+    altitudeRaw: g('wm-alt'),
+    aqi:         g('wm-aqi'),
+  };
+}
+
+function moonPhase() {
+  const known = new Date('2024-01-11'); // known new moon
+  const diff = (Date.now() - known) / 86400000;
+  const val = ((diff % 29.53059) / 29.53059 + 1) % 1;
+  const labels = ['🌑 New','🌒 Wax Crescent','🌓 First Qtr','🌔 Wax Gibbous',
+                  '🌕 Full','🌖 Wan Gibbous','🌗 Last Qtr','🌘 Wan Crescent'];
+  return { val, label: labels[Math.floor(val * 8)] };
+}
+
+/* ---------------------------------------------------------------
+   SAVE / RESET
+   --------------------------------------------------------------- */
+function saveEntry() {
+  const today = new Date().toISOString().split('T')[0];
+  const manual = getManualWeather();
+
+  // Merge auto + manual (manual takes priority where filled in)
+  const w = {
+    ...weatherData,
+    tempRaw:     manual.tempRaw     ?? weatherData.tempRaw,
+    humidityRaw: manual.humidityRaw ?? weatherData.humidityRaw,
+    precipRaw:   manual.precipRaw   ?? weatherData.precipRaw,
+    pressureRaw: manual.pressureRaw ?? weatherData.pressureRaw,
+    windRaw:     manual.windRaw     ?? weatherData.windRaw,
+    cloudRaw:    manual.cloudRaw    ?? weatherData.cloudRaw,
+    altitudeRaw: manual.altitudeRaw ?? (parseFloat(weatherData.altitude) || null),
+    aqi:         manual.aqi         ?? weatherData.aqi,
+    moon:        weatherData.moon,
+    moonVal:     weatherData.moonVal,
+  };
+  // Update string displays from merged raw values
+  if (manual.tempRaw != null) w.temp = manual.tempRaw + '°F';
+  if (manual.humidityRaw != null) w.humidity = manual.humidityRaw + '%';
+
+  const entry = {
+    id:           Date.now(),
+    date:         today,
+    datetime:     new Date().toISOString(),
+    session:      currentSession,
+    // pain
+    painLocations: getChecked('cg-locations'),
+    painTypes:     getChecked('cg-paintypes'),
+    painOverall:   getScaleVal('pain-overall'),
+    fatigue:       getScaleVal('fatigue'),
+    stiffness:     getScaleVal('stiffness'),
+    sleep:         getScaleVal('sleep'),
+    brainfog:      getScaleVal('brainfog'),
+    sensitivity:   getScaleVal('sensitivity'),
+    flare:         getScaleVal('flare'),
+    // mental
+    mood:          selectedMood,
+    depression:    getScaleVal('depression'),
+    anxiety:       getScaleVal('anxiety'),
+    stress:        getScaleVal('stress'),
+    overwhelm:     getScaleVal('overwhelm'),
+    isolation:     getScaleVal('isolation'),
+    // other
+    otherSymptoms: getChecked('cg-other'),
+    activity:      getScaleVal('activity'),
+    medication:    getScaleVal('medication'),
+    notes:         document.getElementById('daily-notes').value.trim(),
+    // weather
+    weather: w,
+  };
+
+  // Replace if same session+date already exists
+  appData.entries = appData.entries.filter(e => !(e.date === today && e.session === currentSession));
+  appData.entries.push(entry);
+  appData.entries.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+
+  // Update done badges
+  updateDoneBadges();
+
+  // Persist in sessionStorage
+  sessionStorage.setItem('fibro-v2', JSON.stringify(appData));
+  updateSummary();
+  toast('✅  Session saved! Remember to export your data.', 'success');
+}
+
+function resetForm() {
+  resetScales();
+  resetChecked('cg-locations');
+  resetChecked('cg-paintypes');
+  resetChecked('cg-other');
+  document.querySelectorAll('.mood-tile.on').forEach(m => m.classList.remove('on'));
+  selectedMood = '';
+  document.getElementById('daily-notes').value = '';
+  // clear manual weather
+  ['wm-temp','wm-hum','wm-precip','wm-pres','wm-wind','wm-cloud','wm-alt','wm-aqi'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+function restoreSession() {
+  const saved = sessionStorage.getItem('fibro-v2');
+  if (saved) {
+    try {
+      appData = JSON.parse(saved);
+      updateDoneBadges();
+      updateSummary();
+      toast('📂  Previous session data restored');
+    } catch(e) {}
+  }
+}
+
+function updateDoneBadges() {
+  const today = new Date().toISOString().split('T')[0];
+  ['morning','afternoon','evening'].forEach(s => {
+    const done = appData.entries.some(e => e.date === today && e.session === s);
+    const tab = document.getElementById('stab-' + s);
+    const existing = tab.querySelector('.done-badge');
+    if (done && !existing) {
+      const badge = document.createElement('div');
+      badge.className = 'done-badge'; badge.textContent = '✓';
+      tab.appendChild(badge);
+    } else if (!done && existing) {
+      existing.remove();
+    }
+  });
+}
+
+/* ---------------------------------------------------------------
+   EXPORT
+   --------------------------------------------------------------- */
+function exportJSON() {
+  if (!appData.entries.length) { toast('No data to export yet', 'error'); return; }
+  const blob = new Blob([JSON.stringify(appData, null, 2)], { type:'application/json' });
+  dlBlob(blob, `fibroflow-${today()}.json`);
+  toast('📥  JSON exported!', 'success');
+}
+
+function exportCSV() {
+  if (!appData.entries.length) { toast('No data to export yet', 'error'); return; }
+  const cols = ['date','session','painOverall','fatigue','stiffness','sleep','brainfog','sensitivity','flare',
+                'depression','anxiety','stress','overwhelm','isolation','mood','activity','medication',
+                'temp_F','humidity_pct','precip_in','pressure_hPa','wind_mph','cloud_pct','altitude_m','aqi','moon',
+                'painLocations','painTypes','otherSymptoms','notes'];
+  const rows = appData.entries.map(e => {
+    const w = e.weather || {};
+    return [
+      e.date, e.session,
+      e.painOverall??'', e.fatigue??'', e.stiffness??'', e.sleep??'', e.brainfog??'', e.sensitivity??'', e.flare??'',
+      e.depression??'', e.anxiety??'', e.stress??'', e.overwhelm??'', e.isolation??'', e.mood??'',
+      e.activity??'', e.medication??'',
+      w.tempRaw??'', w.humidityRaw??'', w.precipRaw??'', w.pressureRaw??'',
+      w.windRaw??'', w.cloudRaw??'', w.altitudeRaw??'', w.aqi??'', w.moon??'',
+      `"${(e.painLocations||[]).join('; ')}"`,
+      `"${(e.painTypes||[]).join('; ')}"`,
+      `"${(e.otherSymptoms||[]).join('; ')}"`,
+      `"${(e.notes||'').replace(/"/g,'""')}"`,
+    ].join(',');
+  });
+  const csv = [cols.join(','), ...rows].join('\n');
+  dlBlob(new Blob([csv], {type:'text/csv'}), `fibroflow-${today()}.csv`);
+  toast('📊  CSV exported!', 'success');
+}
+
+function dlBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+
+/* ---------------------------------------------------------------
+   IMPORT
+   --------------------------------------------------------------- */
+function importFile(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  ev.target.value = '';
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result;
+    if (file.name.endsWith('.json')) {
+      importJSON(text);
+    } else {
+      importCSV(text);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function importJSON(text) {
+  try {
+    const imp = JSON.parse(text);
+    if (!Array.isArray(imp.entries)) throw new Error('bad');
+    mergeEntries(imp.entries);
+    toast(`✅  Loaded ${imp.entries.length} entries from JSON`, 'success');
+  } catch(e) {
+    toast('❌  Invalid JSON file', 'error');
+  }
+}
+
+function importCSV(text) {
+  try {
+    const lines = text.trim().split('\n');
+    const headers = lines[0].split(',');
+    const entries = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = parseCSVLine(lines[i]);
+      const obj = {};
+      headers.forEach((h, idx) => obj[h.trim()] = vals[idx] ?? '');
+      const entry = {
+        id: Date.now() + i,
+        date: obj.date, datetime: obj.date + 'T12:00:00.000Z', session: obj.session,
+        painOverall: numOrNull(obj.painOverall), fatigue: numOrNull(obj.fatigue),
+        stiffness: numOrNull(obj.stiffness), sleep: numOrNull(obj.sleep),
+        brainfog: numOrNull(obj.brainfog), sensitivity: numOrNull(obj.sensitivity),
+        flare: numOrNull(obj.flare), depression: numOrNull(obj.depression),
+        anxiety: numOrNull(obj.anxiety), stress: numOrNull(obj.stress),
+        overwhelm: numOrNull(obj.overwhelm), isolation: numOrNull(obj.isolation),
+        mood: obj.mood, activity: numOrNull(obj.activity), medication: numOrNull(obj.medication),
+        notes: obj.notes,
+        painLocations: obj.painLocations ? obj.painLocations.split('; ').filter(Boolean) : [],
+        painTypes: obj.painTypes ? obj.painTypes.split('; ').filter(Boolean) : [],
+        otherSymptoms: obj.otherSymptoms ? obj.otherSymptoms.split('; ').filter(Boolean) : [],
+        weather: {
+          tempRaw: numOrNull(obj.temp_F), humidityRaw: numOrNull(obj.humidity_pct),
+          precipRaw: numOrNull(obj.precip_in), pressureRaw: numOrNull(obj.pressure_hPa),
+          windRaw: numOrNull(obj.wind_mph), cloudRaw: numOrNull(obj.cloud_pct),
+          altitudeRaw: numOrNull(obj.altitude_m), aqi: numOrNull(obj.aqi), moon: obj.moon,
+        }
+      };
+      if (entry.date) entries.push(entry);
+    }
+    mergeEntries(entries);
+    toast(`✅  Loaded ${entries.length} entries from CSV`, 'success');
+  } catch(e) {
+    toast('❌  Could not parse CSV file', 'error');
+  }
+}
+
+function parseCSVLine(line) {
+  const result = []; let inQ = false; let cur = '';
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; continue; }
+    if (c === ',' && !inQ) { result.push(cur); cur = ''; continue; }
+    cur += c;
+  }
+  result.push(cur);
+  return result;
+}
+
+function numOrNull(v) {
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+}
+
+function mergeEntries(incoming) {
+  const existingIds = new Set(appData.entries.map(e => e.id));
+  const newOnes = incoming.filter(e => !existingIds.has(e.id));
+  appData.entries = [...appData.entries, ...newOnes];
+  appData.entries.sort((a,b) => new Date(a.datetime) - new Date(b.datetime));
+  sessionStorage.setItem('fibro-v2', JSON.stringify(appData));
+  updateSummary();
+  updateDoneBadges();
+}
+
+function clearAll() {
+  if (!confirm('Clear all session data? This does not delete exported files.')) return;
+  appData = { entries: [] };
+  sessionStorage.removeItem('fibro-v2');
+  updateSummary();
+  updateDoneBadges();
+  toast('🗑️  Session data cleared');
+}
+
+/* ---------------------------------------------------------------
+   DATA SUMMARY
+   --------------------------------------------------------------- */
+function updateSummary() {
+  const el = document.getElementById('data-summary');
+  if (!el) return;
+  const n = appData.entries.length;
+  if (!n) { el.textContent = 'No entries logged yet.'; return; }
+  const dates = [...new Set(appData.entries.map(e => e.date))];
+  const painEntries = appData.entries.filter(e => e.painOverall != null);
+  const avgPain = painEntries.length
+    ? (painEntries.reduce((s,e)=>s+e.painOverall,0)/painEntries.length).toFixed(1)
+    : '—';
+  el.innerHTML = `
+    <strong>${n}</strong> total entries across <strong>${dates.length}</strong> days<br>
+    First entry: <strong>${dates[0]}</strong><br>
+    Latest entry: <strong>${dates[dates.length-1]}</strong><br>
+    Average overall pain: <strong>${avgPain} / 10</strong><br>
+    Sessions logged: ${appData.entries.filter(e=>e.session==='morning').length} morning,
+    ${appData.entries.filter(e=>e.session==='afternoon').length} afternoon,
+    ${appData.entries.filter(e=>e.session==='evening').length} evening
+  `;
+}
+
+/* ---------------------------------------------------------------
+   NAVIGATION
+   --------------------------------------------------------------- */
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'dashboard') renderDash();
+}
+
+/* ---------------------------------------------------------------
+   DASHBOARD
+   --------------------------------------------------------------- */
+function renderDash() {
+  const noData = document.getElementById('dash-no-data');
+  const content = document.getElementById('dash-content');
+  if (!appData.entries.length) {
+    noData.style.display = 'block'; content.style.display = 'none'; return;
+  }
+  noData.style.display = 'none'; content.style.display = 'block';
+  buildChips();
+  buildStats();
+  buildCharts();
+}
+
+function getFiltered() {
+  let entries = [...appData.entries];
+  const rangeDays = parseInt(document.getElementById('range-sel').value);
+  if (rangeDays > 0) {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - rangeDays);
+    entries = entries.filter(e => new Date(e.date) >= cutoff);
+  }
+  const sess = document.getElementById('session-sel').value;
+  if (sess !== 'all') entries = entries.filter(e => e.session === sess);
+  return entries;
+}
+
+function buildChips() {
+  ['physical','mental','env'].forEach(group => {
+    const container = document.getElementById('chips-' + group);
+    container.innerHTML = '';
+    FILTER_CFG.filter(f => f.group === group).forEach(f => {
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (filters[f.key] ? ' on' : '');
+      chip.innerHTML = `<span class="cdot" style="background:${f.color}"></span>${f.label}`;
+      chip.onclick = () => { filters[f.key] = !filters[f.key]; chip.classList.toggle('on', filters[f.key]); buildCharts(); };
+      container.appendChild(chip);
+    });
+  });
+}
+
+function buildStats() {
+  const entries = getFiltered();
+  const grid = document.getElementById('dash-stats');
+  grid.innerHTML = '';
+  const stats = [
+    { v: entries.length,                                   l: 'Entries' },
+    { v: new Set(entries.map(e=>e.date)).size,             l: 'Days' },
+    { v: avgStat(entries,'painOverall'),                   l: 'Avg Pain' },
+    { v: avgStat(entries,'fatigue'),                       l: 'Avg Fatigue' },
+    { v: avgStat(entries,'anxiety'),                       l: 'Avg Anxiety' },
+    { v: bestDay(entries),                                 l: 'Best Day' },
+  ];
+  stats.forEach(s => {
+    grid.insertAdjacentHTML('beforeend',
+      `<div class="stat-box"><div class="stat-val">${s.v}</div><div class="stat-lbl">${s.l}</div></div>`);
+  });
+}
+
+function avgStat(entries, key) {
+  const vals = entries.map(e=>e[key]).filter(v=>v!=null);
+  if (!vals.length) return '—';
+  return (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+}
+
+function bestDay(entries) {
+  const byDate = {};
+  entries.forEach(e => { if (e.painOverall) (byDate[e.date] = byDate[e.date]||[]).push(e.painOverall); });
+  const avgs = Object.entries(byDate).map(([d,vs]) => ({ d, a: vs.reduce((a,b)=>a+b)/vs.length }));
+  if (!avgs.length) return '—';
+  const best = avgs.reduce((a,b) => b.a < a.a ? b : a);
+  return best.d.slice(5); // MM-DD
+}
+
+function buildCharts() {
+  const entries = getFiltered();
+  const dates = [...new Set(entries.map(e => e.date))].sort();
+  const labels = dates.map(d => { const [,m,day] = d.split('-'); return `${m}/${day}`; });
+
+  const dailyAvg = key => dates.map(d => {
+    const vs = entries.filter(e => e.date===d && e[key]!=null).map(e=>e[key]);
+    return vs.length ? vs.reduce((a,b)=>a+b)/vs.length : null;
+  });
+
+  const dailyWeather = rawKey => dates.map(d => {
+    const es = entries.filter(e => e.date===d && e.weather?.[rawKey]!=null);
+    return es.length ? es[0].weather[rawKey] : null;
+  });
+
+  // PHYSICAL chart
+  const physDatasets = FILTER_CFG.filter(f=>f.group==='physical'&&filters[f.key]).map(f => ({
+    label: f.label,
+    data: dailyAvg(f.key === 'painOverall' ? 'painOverall' : f.key),
+    borderColor: f.color, backgroundColor: f.color + '20',
+    tension: 0.4, pointRadius: 3, borderWidth: 2, spanGaps: true,
+  }));
+
+  // MENTAL chart
+  const mentDatasets = FILTER_CFG.filter(f=>f.group==='mental'&&filters[f.key]).map(f => ({
+    label: f.label,
+    data: dailyAvg(f.key),
+    borderColor: f.color, backgroundColor: f.color + '20',
+    tension: 0.4, pointRadius: 3, borderWidth: 2, spanGaps: true,
+  }));
+
+  // ENV chart — different y scale per metric
+  const envDatasets = [];
+  const envFiltered = FILTER_CFG.filter(f=>f.group==='env'&&filters[f.key]);
+  envFiltered.forEach(f => {
+    let data = dailyWeather(f.raw);
+    // Normalize pressure to 0-100 range for display
+    if (f.key === 'pressure') data = data.map(v => v != null ? ((v - 980) / (1040 - 980)) * 100 : null);
+    envDatasets.push({
+      label: f.label + (f.key==='pressure' ? ' (normalized)' : ''),
+      data, borderColor: f.color, backgroundColor: f.color + '20',
+      tension: 0.4, pointRadius: 3, borderWidth: 2, spanGaps: true,
+    });
+  });
+
+  drawChart('chart-physical', labels, physDatasets, { yMin:0, yMax:10 });
+  drawChart('chart-mental',   labels, mentDatasets, { yMin:0, yMax:10 });
+  drawChart('chart-env',      labels, envDatasets,  { yMin:0, yMax:null });
+}
+
+const chartDefaults = {
+  responsive: true,
+  interaction: { mode:'index', intersect:false },
+  plugins: {
+    legend: { labels: { color:'#6e6d88', font:{ family:'Outfit', size:11 }, boxWidth:10, padding:14 } },
+    tooltip: {
+      backgroundColor:'#1f2230', borderColor:'rgba(255,255,255,0.08)', borderWidth:1,
+      titleColor:'#eceaf6', bodyColor:'#6e6d88', padding:10,
+    }
+  },
+  scales: {
+    x: { ticks:{ color:'#3c3b52', font:{size:10} }, grid:{ color:'rgba(255,255,255,0.04)' } },
+    y: { ticks:{ color:'#3c3b52', font:{size:10} }, grid:{ color:'rgba(255,255,255,0.04)' } }
+  }
+};
+
+function drawChart(id, labels, datasets, { yMin=0, yMax=10 } = {}) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  const opts = JSON.parse(JSON.stringify(chartDefaults));
+  opts.scales.y.min = yMin;
+  if (yMax !== null) opts.scales.y.max = yMax;
+  charts[id] = new Chart(document.getElementById(id), {
+    type:'line',
+    data: { labels, datasets: datasets.length ? datasets : [{ data:[], label:'No metrics selected' }] },
+    options: opts,
+  });
+}
+
+/* ---------------------------------------------------------------
+   DRAG & DROP
+   --------------------------------------------------------------- */
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    if (file.name.endsWith('.json')) importJSON(ev.target.result);
+    else importCSV(ev.target.result);
+  };
+  reader.readAsText(file);
+});
+
+/* ---------------------------------------------------------------
+   TOAST
+   --------------------------------------------------------------- */
+let toastTimer;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast ' + type + ' show';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3800);
+}
+</script>
+</body>
+</html>
