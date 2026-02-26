@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Square ↔ Shopify Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #1f2937;
+    --border:    #30363d;
+    --accent:    #f0a500;
+    --accent2:   #e05c00;
+    --green:     #3fb950;
+    --red:       #f85149;
+    --blue:      #58a6ff;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --mono:      'Space Mono', monospace;
+    --sans:      'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-badge {
+    background: var(--accent);
+    color: #000;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 16px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    color: var(--text);
+  }
+  .btn:hover { border-color: var(--muted); background: var(--surface2); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #ffc233; border-color: #ffc233; }
+  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: rgba(248,81,73,0.1); }
+  .btn-green { background: var(--green); border-color: var(--green); color: #000; font-weight: 600; }
+  .btn-green:hover { background: #56d364; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px;
+  }
+
+  /* ── STEP INDICATOR ── */
+  .steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 40px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    transition: color 0.2s;
+  }
+  .step.active { color: var(--accent); }
+  .step.done { color: var(--green); }
+  .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1px solid currentColor;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    transition: background 0.2s;
+  }
+  .step.active .step-num { background: var(--accent); color: #000; border-color: var(--accent); }
+  .step.done .step-num { background: var(--green); color: #000; border-color: var(--green); }
+  .step-line { width: 40px; height: 1px; background: var(--border); margin: 0 4px; }
+  .step-line.done { background: var(--green); }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 32px;
+    width: 100%;
+    max-width: 640px;
+    animation: fadeUp 0.3s ease;
+  }
+  .card-wide { max-width: 900px; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title span { color: var(--accent); }
+
+  /* ── DROP ZONE ── */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    padding: 56px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: rgba(240,165,0,0.04);
+  }
+  .dropzone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .dropzone-icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+    display: block;
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  .dropzone h3 { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .dropzone p { font-size: 13px; color: var(--muted); }
+
+  /* ── FORMAT SELECTOR ── */
+  .format-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .format-btn {
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--sans);
+  }
+  .format-btn:hover { border-color: var(--accent); background: rgba(240,165,0,0.04); }
+  .format-btn.selected { border-color: var(--accent); background: rgba(240,165,0,0.08); }
+  .format-btn .fb-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+  .format-btn .fb-name { font-size: 15px; font-weight: 600; display: block; }
+  .format-btn .fb-desc { font-size: 12px; color: var(--muted); margin-top: 2px; display: block; }
+
+  /* ── CONFIRMATION SUMMARY ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .summary-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .summary-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .summary-value {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .summary-value.accent { color: var(--accent); }
+  .summary-value.green { color: var(--green); }
+  .arrow-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    margin: 16px 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .platform-tag {
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .platform-tag.square { background: rgba(0,200,120,0.15); color: #00c878; border: 1px solid rgba(0,200,120,0.3); }
+  .platform-tag.shopify { background: rgba(150,91,229,0.15); color: #c084fc; border: 1px solid rgba(150,91,229,0.3); }
+
+  /* ── DOWNLOAD OPTIONS ── */
+  .download-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .download-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+  }
+  .download-card:hover { border-color: var(--green); background: rgba(63,185,80,0.05); }
+  .download-card .dc-icon { font-size: 28px; margin-bottom: 8px; display: block; }
+  .download-card .dc-name { font-weight: 600; font-size: 14px; }
+  .download-card .dc-desc { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+  /* ── SUCCESS STATE ── */
+  .success-banner {
+    background: rgba(63,185,80,0.1);
+    border: 1px solid rgba(63,185,80,0.3);
+    border-radius: 6px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    font-size: 14px;
+  }
+
+  /* ── MAPPING SCREEN ── */
+  .mapping-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .mapping-table th {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .mapping-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .mapping-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .field-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  .field-tag.sq { background: rgba(0,200,120,0.1); color: #00c878; border: 1px solid rgba(0,200,120,0.2); }
+  .field-tag.sh { background: rgba(150,91,229,0.1); color: #c084fc; border: 1px solid rgba(150,91,229,0.2); }
+  .map-arrow { color: var(--muted); font-size: 16px; text-align: center; }
+  .mapping-table input, .mapping-table select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    width: 100%;
+  }
+  .mapping-table input:focus, .mapping-table select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .note-text { font-size: 11px; color: var(--muted); font-style: italic; }
+  .btn-icon {
+    width: 28px; height: 28px;
+    padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .btn-icon:hover { background: rgba(248,81,73,0.12); color: var(--red); border-color: rgba(248,81,73,0.3); }
+  .add-mapping-form {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr 1fr auto;
+    gap: 8px;
+    align-items: center;
+    background: var(--surface2);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+  .add-mapping-form input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  .add-mapping-form input:focus { outline: none; border-color: var(--accent); }
+  .add-mapping-form input::placeholder { color: var(--muted); }
+  .add-arrow { color: var(--muted); font-size: 16px; text-align: center; user-select: none; }
+  .unsaved-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-left: 6px;
+    vertical-align: middle;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── UPLOAD ROW for Mapping Screen ── */
+  .upload-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .mini-drop {
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    position: relative;
+    transition: all 0.2s;
+  }
+  .mini-drop:hover { border-color: var(--accent); color: var(--text); }
+  .mini-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .mini-drop.loaded { border-color: var(--green); color: var(--green); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    gap: 0;
+  }
+  .tab {
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+    margin-bottom: -1px;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: var(--sans);
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── MISC ── */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+  .text-muted { color: var(--muted); font-size: 12px; }
+  .mt-12 { margin-top: 12px; }
+  .mt-20 { margin-top: 20px; }
+  .flex { display: flex; align-items: center; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .tag-note {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(240,165,0,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(240,165,0,0.2);
+  }
+  .screen { display: none; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 18px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.3s ease;
+    z-index: 999;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .toast.success { border-color: rgba(63,185,80,0.4); }
+  .toast.error { border-color: rgba(248,81,73,0.4); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <span>◈</span> PRODUCT CONVERTER
+    <span class="logo-badge">BETA</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-sm" id="btn-mapping-screen">⚙ Field Mapping</button>
+    <button class="btn btn-sm" id="btn-reset" style="display:none">↺ New Conversion</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main id="main-area">
+
+  <!-- ── SCREEN: CONVERTER ── -->
+  <div class="screen active" id="screen-converter">
+
+    <!-- Step Indicator -->
+    <div class="steps" id="step-indicator">
+      <div class="step active" id="s1"><div class="step-num">1</div> Upload</div>
+      <div class="step-line" id="sl1"></div>
+      <div class="step active" id="s2"><div class="step-num">2</div> Format</div>
+      <div class="step-line" id="sl2"></div>
+      <div class="step" id="s3"><div class="step-num">3</div> Confirm</div>
+      <div class="step-line" id="sl3"></div>
+      <div class="step" id="s4"><div class="step-num">4</div> Download</div>
+    </div>
+
+    <!-- STEP 1+2: Upload + Format Selection -->
+    <div class="card" id="panel-upload">
+      <div class="card-title"><span>01</span> Drop Your File</div>
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls" />
+        <span class="dropzone-icon">📂</span>
+        <h3>Drag & drop your product file here</h3>
+        <p>CSV files supported · Click to browse</p>
+      </div>
+
+      <div id="file-info" style="display:none; margin-top:16px;">
+        <div style="background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:20px;">📄</span>
+            <div>
+              <div style="font-weight:500; font-size:14px;" id="file-name-display"></div>
+              <div style="font-size:12px; color:var(--muted);" id="file-meta-display"></div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-danger" id="btn-clear-file">✕</button>
+        </div>
+      </div>
+
+      <div id="format-section" style="display:none; margin-top:24px;">
+        <div class="divider" style="margin: 0 0 20px 0;"></div>
+        <div class="card-title"><span>02</span> What format is this file?</div>
+        <div class="format-options">
+          <button class="format-btn" id="fmt-square" onclick="selectFormat('square')">
+            <span class="fb-icon">🟩</span>
+            <span class="fb-name">Square</span>
+            <span class="fb-desc">Square POS product export</span>
+          </button>
+          <button class="format-btn" id="fmt-shopify" onclick="selectFormat('shopify')">
+            <span class="fb-icon">🟪</span>
+            <span class="fb-name">Shopify</span>
+            <span class="fb-desc">Shopify product template</span>
+          </button>
+        </div>
+        <div class="mt-12" style="text-align:center;">
+          <button class="btn btn-primary mt-12" id="btn-next-confirm" disabled onclick="goToConfirm()">
+            Continue →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Confirmation -->
+    <div class="card" id="panel-confirm" style="display:none;">
+      <div class="card-title"><span>03</span> Confirm Conversion</div>
+
+      <div class="arrow-display">
+        <span class="platform-tag" id="conf-from-tag">Square</span>
+        <span style="color:var(--accent); font-size:20px;">→</span>
+        <span class="platform-tag" id="conf-to-tag">Shopify</span>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-item">
+          <div class="summary-label">File</div>
+          <div class="summary-value accent" id="conf-filename" style="font-size:14px; word-break:break-all;"></div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Data Rows</div>
+          <div class="summary-value green" id="conf-rows"></div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Detected Products</div>
+          <div class="summary-value" id="conf-products"></div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Fields to Map</div>
+          <div class="summary-value" id="conf-fields"></div>
+        </div>
+      </div>
+
+      <div id="conf-warnings" style="margin-bottom:16px; display:none;">
+        <div style="background:rgba(240,165,0,0.08); border:1px solid rgba(240,165,0,0.3); border-radius:6px; padding:12px 16px; font-size:13px;" id="conf-warnings-text"></div>
+      </div>
+
+      <div class="flex gap-12">
+        <button class="btn" onclick="goBack()">← Back</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="runConversion()">⚡ Convert Now</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: Download -->
+    <div class="card" id="panel-download" style="display:none;">
+      <div class="success-banner">
+        <span style="font-size:20px;">✅</span>
+        <div>
+          <div style="font-weight:600;">Conversion complete!</div>
+          <div style="font-size:12px; color:var(--muted);" id="dl-summary-text"></div>
+        </div>
+      </div>
+
+      <div class="card-title"><span>04</span> Download Converted File</div>
+      <div class="download-options">
+        <div class="download-card" onclick="downloadFile('csv')">
+          <span class="dc-icon">📊</span>
+          <div class="dc-name">Download CSV</div>
+          <div class="dc-desc">Comma-separated values</div>
+        </div>
+        <div class="download-card" onclick="downloadFile('xlsx')">
+          <span class="dc-icon">📗</span>
+          <div class="dc-name">Download Excel</div>
+          <div class="dc-desc">.xlsx spreadsheet</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="card-title" style="margin-bottom:12px;"><span>↺</span> Start Over</div>
+      <button class="btn" style="width:100%;" onclick="resetApp()">Convert Another File</button>
+    </div>
+
+  </div><!-- /screen-converter -->
+
+  <!-- ── SCREEN: MAPPING ── -->
+  <div class="screen" id="screen-mapping">
+    <div class="card card-wide">
+      <div class="flex-between" style="margin-bottom:20px;">
+        <div class="card-title" style="margin:0;"><span>⚙</span> Field Mapping Configuration</div>
+        <button class="btn btn-sm" onclick="showConverter()">← Back to Converter</button>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('tab-mapping')">Current Mapping</button>
+        <button class="tab" onclick="showTab('tab-import')">Import / Export</button>
+        <button class="tab" onclick="showTab('tab-help')">Help</button>
+      </div>
+
+      <!-- TAB: Current Mapping -->
+      <div id="tab-mapping">
+        <div class="flex-between" style="margin-bottom:16px;">
+          <p class="text-muted">Add, remove, or edit field mappings. Click <strong style="color:var(--text);">Save Mapping</strong> to apply changes.</p>
+          <button class="btn btn-sm btn-danger" onclick="resetMapping()">Reset to Default</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="mapping-table" id="mapping-table-el">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Square Field</th>
+                <th></th>
+                <th>Shopify Field</th>
+                <th>Notes</th>
+                <th style="width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="mapping-tbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Add New Mapping Form -->
+        <div class="add-mapping-form">
+          <input type="text" id="new-sq-field" placeholder="Square field name…" />
+          <span class="add-arrow">↔</span>
+          <input type="text" id="new-sh-field" placeholder="Shopify field name…" />
+          <input type="text" id="new-note" placeholder="Notes (optional)" />
+          <button class="btn btn-primary btn-sm" onclick="addMapping()" style="white-space:nowrap;">+ Add</button>
+        </div>
+
+        <div class="flex gap-12 mt-20" style="align-items:center;">
+          <button class="btn btn-primary" onclick="saveMapping()" id="btn-save-mapping">
+            💾 Save Mapping
+          </button>
+          <span id="unsaved-indicator" style="display:none; font-size:12px; color:var(--accent);">
+            <span class="unsaved-dot"></span> Unsaved changes
+          </span>
+        </div>
+      </div>
+
+      <!-- TAB: Import/Export -->
+      <div id="tab-import" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+          <div>
+            <div class="card-title" style="margin-bottom:12px;"><span>↓</span> Export Mapping</div>
+            <p class="text-muted" style="margin-bottom:12px;">Download your current field mapping as a JSON file to back it up or share it.</p>
+            <button class="btn btn-primary" onclick="exportMapping()">📥 Download mapping.json</button>
+          </div>
+          <div>
+            <div class="card-title" style="margin-bottom:12px;"><span>↑</span> Import Mapping</div>
+            <p class="text-muted" style="margin-bottom:12px;">Load a previously saved mapping JSON file to restore or use a different configuration.</p>
+            <label class="btn" style="cursor:pointer; display:inline-flex;">
+              📤 Upload mapping.json
+              <input type="file" accept=".json" style="display:none;" onchange="importMapping(event)" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Help -->
+      <div id="tab-help" style="display:none;">
+        <div style="font-size:13px; line-height:1.7; color:var(--muted);">
+          <p style="color:var(--text); font-weight:500; margin-bottom:12px;">How Field Mapping Works</p>
+          <p>The field mapping table defines how column names translate between Square and Shopify formats. When converting a file, each Square column is matched to its Shopify equivalent using this mapping.</p>
+          <br/>
+          <p><strong style="color:var(--text);">Adding a mapping:</strong> Use the form below the table — enter the exact Square column name, the exact Shopify column name, and an optional note, then click <strong style="color:var(--accent);">+ Add</strong>. The new row appears in the table. Click <strong style="color:var(--accent);">Save Mapping</strong> to persist it.</p>
+          <br/>
+          <p><strong style="color:var(--text);">Removing a mapping:</strong> Click the 🗑 delete button on any row to remove it. The row is removed immediately from the table. Click <strong style="color:var(--accent);">Save Mapping</strong> to persist the change.</p>
+          <br/>
+          <p><strong style="color:var(--text);">Special conversion rules (always applied regardless of mapping):</strong></p>
+          <ul style="margin-left:20px; margin-top:8px;">
+            <li><strong style="color:var(--text);">Weight:</strong> Automatically converts lb ↔ grams (×453.592)</li>
+            <li><strong style="color:var(--text);">Status/Archived:</strong> Shopify Status always set to <code style="color:var(--accent);">Draft</code></li>
+            <li><strong style="color:var(--text);">Variants:</strong> Row structure automatically restructured between platforms</li>
+            <li><strong style="color:var(--text);">Unmapped fields:</strong> Silently dropped from output</li>
+          </ul>
+          <br/>
+          <p><strong style="color:var(--text);">Saving:</strong> Mappings are saved to your browser's local storage and persist between sessions. Use Export/Import to move mappings between devices or create backups.</p>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /screen-mapping -->
+
+</main>
+
+<!-- TOAST -->
+<div id="toast" style="display:none;"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DEFAULT FIELD MAPPING
+// ═══════════════════════════════════════════════════════════
+const DEFAULT_MAPPING = [
+  { id: 1, square: 'Item Name',              shopify: 'Title',                  note: 'Product title' },
+  { id: 2, square: 'Description',            shopify: 'Description',            note: '' },
+  { id: 3, square: 'SKU',                    shopify: 'SKU',                    note: '' },
+  { id: 4, square: 'GTIN',                   shopify: 'Barcode',                note: '' },
+  { id: 5, square: 'Price',                  shopify: 'Price',                  note: 'Base price' },
+  { id: 6, square: 'Online Sale Price',      shopify: 'Compare-at price',       note: '' },
+  { id: 7, square: 'Default Unit Cost',      shopify: 'Cost per item',          note: '' },
+  { id: 8, square: 'Categories',             shopify: 'Product category',       note: '' },
+  { id: 9, square: 'Weight (lb)',            shopify: 'Weight value (grams)',   note: 'Auto-converts lb↔g' },
+  { id:10, square: 'Option Name 1',          shopify: 'Option1 name',           note: '' },
+  { id:11, square: 'Option Value 1',         shopify: 'Option1 value',          note: '' },
+  { id:12, square: 'Current Quantity FPH',   shopify: 'Inventory quantity',     note: '' },
+  { id:13, square: 'Variation Name',         shopify: 'Option1 value',          note: 'Variant rows' },
+  { id:14, square: 'Customer-facing Name',   shopify: 'Vendor',                 note: '' },
+  { id:15, square: 'Archived',               shopify: 'Status',                 note: 'Always → Draft' },
+  { id:16, square: 'Item Type',              shopify: 'Type',                   note: '' },
+];
+
+// ═══════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════
+let state = {
+  file: null,
+  parsedRows: [],
+  sourceFormat: null,  // 'square' | 'shopify'
+  convertedRows: [],
+  outputFilename: '',
+  mapping: loadMapping(),
+};
+
+function loadMapping() {
+  try {
+    const saved = localStorage.getItem('sq_sh_mapping');
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_MAPPING));
+}
+
+function saveMapping() {
+  // Collect any in-progress edits directly from the live inputs
+  document.querySelectorAll('#mapping-tbody input').forEach(input => {
+    const idx = parseInt(input.dataset.idx);
+    const field = input.dataset.field;
+    if (!isNaN(idx) && field && state.mapping[idx]) {
+      state.mapping[idx][field] = input.value;
+    }
+  });
+  localStorage.setItem('sq_sh_mapping', JSON.stringify(state.mapping));
+  clearUnsaved();
+  renderMappingTable();
+  showToast('✅ Mapping saved to browser', 'success');
+}
+
+function resetMapping() {
+  if (!confirm('Reset all mappings to default? All custom additions and deletions will be lost.')) return;
+  state.mapping = JSON.parse(JSON.stringify(DEFAULT_MAPPING));
+  localStorage.setItem('sq_sh_mapping', JSON.stringify(state.mapping));
+  clearUnsaved();
+  renderMappingTable();
+  showToast('↺ Mapping reset to defaults', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showConverter() { showScreen('screen-converter'); }
+
+document.getElementById('btn-mapping-screen').onclick = () => {
+  renderMappingTable();
+  showScreen('screen-mapping');
+};
+
+document.getElementById('btn-reset').onclick = resetApp;
+
+function showTab(id) {
+  ['tab-mapping','tab-import','tab-help'].forEach(t => {
+    document.getElementById(t).style.display = t === id ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    const ids = ['tab-mapping','tab-import','tab-help'];
+    t.classList.toggle('active', ids[i] === id);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILE UPLOAD
+// ═══════════════════════════════════════════════════════════
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+document.getElementById('btn-clear-file').onclick = () => {
+  state.file = null;
+  state.parsedRows = [];
+  state.sourceFormat = null;
+  document.getElementById('file-info').style.display = 'none';
+  document.getElementById('format-section').style.display = 'none';
+  document.getElementById('dropzone').style.display = 'block';
+  document.getElementById('fmt-square').classList.remove('selected');
+  document.getElementById('fmt-shopify').classList.remove('selected');
+  document.getElementById('btn-next-confirm').disabled = true;
+  fileInput.value = '';
+};
+
+function handleFile(file) {
+  const validExts = ['.csv', '.xlsx', '.xls'];
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+  if (!validExts.includes(ext)) {
+    showToast('❌ Please upload a CSV or Excel file', 'error');
+    return;
+  }
+  state.file = file;
+
+  // Parse the file
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      let rows;
+      if (ext === '.csv') {
+        rows = parseCSV(e.target.result);
+      } else {
+        const wb = XLSX.read(e.target.result, { type: 'binary' });
+        // For Square xlsx: find the header row (row 6)
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = parseXLSXSheet(ws);
+      }
+
+      if (!rows || rows.length === 0) {
+        showToast('❌ File appears empty or unreadable', 'error');
+        return;
+      }
+
+      state.parsedRows = rows;
+
+      // Show file info
+      document.getElementById('file-name-display').textContent = file.name;
+      document.getElementById('file-meta-display').textContent = `${rows.length} rows · ${Object.keys(rows[0]).length} columns`;
+      document.getElementById('file-info').style.display = 'block';
+      document.getElementById('dropzone').style.display = 'none';
+      document.getElementById('format-section').style.display = 'block';
+
+    } catch(err) {
+      showToast('❌ Error reading file: ' + err.message, 'error');
+      console.error(err);
+    }
+  };
+
+  if (ext === '.csv') reader.readAsText(file);
+  else reader.readAsBinaryString(file);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CSV + XLSX PARSERS
+// ═══════════════════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) return [];
+
+  const headers = parseCSVLine(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = parseCSVLine(lines[i]);
+    const row = {};
+    headers.forEach((h, idx) => { row[h] = vals[idx] || ''; });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i+1] === '"') { current += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (ch === ',' && !inQuote) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function parseXLSXSheet(ws) {
+  // Find the actual header row (skip instructions/example rows in Square template)
+  const ref = ws['!ref'];
+  if (!ref) return [];
+  const range = XLSX.utils.decode_range(ref);
+
+  let headerRow = 0;
+  // Try to find row with most non-empty cells (likely the header)
+  let maxFilled = 0;
+  for (let r = 0; r <= Math.min(range.e.r, 10); r++) {
+    let filled = 0;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      if (cell && cell.v) filled++;
+    }
+    if (filled > maxFilled) { maxFilled = filled; headerRow = r; }
+  }
+
+  const headers = [];
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const cell = ws[XLSX.utils.encode_cell({r: headerRow, c})];
+    headers.push(cell ? String(cell.v) : '');
+  }
+
+  const rows = [];
+  for (let r = headerRow + 1; r <= range.e.r; r++) {
+    const row = {};
+    let hasData = false;
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({r, c})];
+      const val = cell ? String(cell.v) : '';
+      row[headers[c - range.s.c]] = val;
+      if (val) hasData = true;
+    }
+    if (hasData) rows.push(row);
+  }
+  return rows;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FORMAT SELECTION
+// ═══════════════════════════════════════════════════════════
+function selectFormat(fmt) {
+  state.sourceFormat = fmt;
+  document.getElementById('fmt-square').classList.toggle('selected', fmt === 'square');
+  document.getElementById('fmt-shopify').classList.toggle('selected', fmt === 'shopify');
+  document.getElementById('btn-next-confirm').disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STEP 3: CONFIRMATION
+// ═══════════════════════════════════════════════════════════
+function goToConfirm() {
+  const rows = state.parsedRows;
+  const fmt = state.sourceFormat;
+  const targetFmt = fmt === 'square' ? 'shopify' : 'square';
+
+  // Count unique products
+  let productCount = 0;
+  if (fmt === 'square') {
+    const names = new Set(rows.map(r => r['Item Name']).filter(Boolean));
+    productCount = names.size;
+  } else {
+    productCount = rows.filter(r => r['Title'] && r['Title'].trim()).length;
+  }
+
+  // Count mappable fields
+  const mapping = state.mapping;
+  const sourceFields = fmt === 'square'
+    ? mapping.map(m => m.square)
+    : mapping.map(m => m.shopify);
+  const rowKeys = Object.keys(rows[0] || {});
+  const matchedFields = sourceFields.filter(f => rowKeys.includes(f));
+  const uniqueMatched = [...new Set(matchedFields)].length;
+
+  // Warnings
+  const warnings = [];
+  if (fmt === 'square' && !rowKeys.includes('Item Name')) warnings.push('⚠ "Item Name" column not found — product titles may be missing.');
+  if (fmt === 'shopify' && !rowKeys.includes('Title')) warnings.push('⚠ "Title" column not found — product titles may be missing.');
+  if (productCount === 0) warnings.push('⚠ No products detected — double-check the source format selection.');
+
+  // Update UI
+  const fromTag = document.getElementById('conf-from-tag');
+  const toTag = document.getElementById('conf-to-tag');
+  fromTag.textContent = fmt === 'square' ? 'Square' : 'Shopify';
+  fromTag.className = 'platform-tag ' + fmt;
+  toTag.textContent = targetFmt === 'square' ? 'Square' : 'Shopify';
+  toTag.className = 'platform-tag ' + targetFmt;
+
+  document.getElementById('conf-filename').textContent = state.file.name;
+  document.getElementById('conf-rows').textContent = rows.length;
+  document.getElementById('conf-products').textContent = productCount || '—';
+  document.getElementById('conf-fields').textContent = `${uniqueMatched} / ${[...new Set(sourceFields)].length}`;
+
+  if (warnings.length) {
+    document.getElementById('conf-warnings').style.display = 'block';
+    document.getElementById('conf-warnings-text').innerHTML = warnings.join('<br/>');
+  } else {
+    document.getElementById('conf-warnings').style.display = 'none';
+  }
+
+  document.getElementById('panel-upload').style.display = 'none';
+  document.getElementById('panel-confirm').style.display = 'block';
+  setStep(3);
+}
+
+function goBack() {
+  document.getElementById('panel-upload').style.display = 'block';
+  document.getElementById('panel-confirm').style.display = 'none';
+  setStep(2);
+}
+
+function setStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const s = document.getElementById('s'+i);
+    s.classList.remove('active','done');
+    if (i < n) s.classList.add('done');
+    else if (i === n) s.classList.add('active');
+  }
+  for (let i = 1; i <= 3; i++) {
+    const sl = document.getElementById('sl'+i);
+    sl.classList.toggle('done', i < n);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONVERSION ENGINE
+// ═══════════════════════════════════════════════════════════
+function runConversion() {
+  try {
+    const rows = state.parsedRows;
+    const fmt = state.sourceFormat;
+    let converted;
+
+    if (fmt === 'square') {
+      converted = squareToShopify(rows);
+    } else {
+      converted = shopifyToSquare(rows);
+    }
+
+    state.convertedRows = converted;
+    const targetFmt = fmt === 'square' ? 'shopify' : 'square';
+    const baseName = state.file.name.replace(/\.[^.]+$/, '');
+    state.outputFilename = `${baseName}_converted_to_${targetFmt}`;
+
+    // Show download panel
+    document.getElementById('panel-confirm').style.display = 'none';
+    document.getElementById('panel-download').style.display = 'block';
+    document.getElementById('btn-reset').style.display = 'inline-flex';
+    document.getElementById('dl-summary-text').textContent =
+      `${converted.length} rows converted from ${fmt === 'square' ? 'Square' : 'Shopify'} → ${targetFmt === 'square' ? 'Square' : 'Shopify'}`;
+    setStep(4);
+
+  } catch(err) {
+    showToast('❌ Conversion failed: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// ── Square → Shopify ──────────────────────────────────────
+function squareToShopify(rows) {
+  const m = buildMapObj('sq2sh'); // { squareField: shopifyField }
+  const output = [];
+
+  // Group rows by Item Name (each unique Item Name = one product)
+  const productMap = new Map();
+  const productOrder = [];
+  for (const row of rows) {
+    const name = row['Item Name'] || '';
+    if (!productMap.has(name)) {
+      productMap.set(name, []);
+      productOrder.push(name);
+    }
+    productMap.get(name).push(row);
+  }
+
+  for (const name of productOrder) {
+    const variants = productMap.get(name);
+    variants.forEach((v, i) => {
+      const out = {};
+
+      // Parent row fields (only on first variant)
+      if (i === 0) {
+        out['Title']            = v['Item Name'] || '';
+        out['Vendor']           = v['Customer-facing Name'] || '';
+        out['Description']      = v['Description'] || '';
+        out['Product category'] = v['Categories'] || '';
+        out['Type']             = v['Item Type'] || '';
+        out['Status']           = 'Draft';
+      } else {
+        out['Title']            = '';
+        out['Vendor']           = '';
+        out['Description']      = '';
+        out['Product category'] = '';
+        out['Type']             = '';
+        out['Status']           = '';
+      }
+
+      // Variant-level fields
+      out['SKU']                 = v['SKU'] || '';
+      out['Barcode']             = v['GTIN'] || '';
+      out['Price']               = v['Price'] || '';
+      out['Compare-at price']    = v['Online Sale Price'] || '';
+      out['Cost per item']       = v['Default Unit Cost'] || '';
+      out['Inventory quantity']  = v['Current Quantity FPH'] || '';
+
+      // Weight conversion: lb → grams
+      const wLb = parseFloat(v['Weight (lb)']);
+      out['Weight value (grams)'] = isNaN(wLb) ? '' : round2(wLb * 453.592);
+
+      // Options
+      const optName = v['Option Name 1'] || '';
+      const optVal  = v['Option Value 1'] || v['Variation Name'] || '';
+      out['Option1 name']  = optName || (optVal ? 'Title' : '');
+      out['Option1 value'] = optVal;
+
+      output.push(out);
+    });
+  }
+  return output;
+}
+
+// ── Shopify → Square ──────────────────────────────────────
+function shopifyToSquare(rows) {
+  const output = [];
+  let currentTitle = '', currentVendor = '', currentDesc = '', currentCat = '', currentType = '';
+
+  for (const row of rows) {
+    // If Title present, this is a parent row — update context
+    if (row['Title'] && row['Title'].trim()) {
+      currentTitle  = row['Title'];
+      currentVendor = row['Vendor'] || '';
+      currentDesc   = row['Description'] || '';
+      currentCat    = row['Product category'] || '';
+      currentType   = row['Type'] || '';
+    }
+
+    const out = {};
+    out['Item Name']             = currentTitle;
+    out['Customer-facing Name']  = currentVendor;
+    out['Description']           = currentDesc;
+    out['Categories']            = currentCat;
+    out['Item Type']             = currentType;
+    out['Variation Name']        = row['Option1 value'] || '';
+    out['SKU']                   = row['SKU'] || '';
+    out['GTIN']                  = row['Barcode'] || '';
+    out['Price']                 = row['Price'] || '';
+    out['Online Sale Price']     = row['Compare-at price'] || '';
+    out['Default Unit Cost']     = row['Cost per item'] || '';
+    out['Current Quantity FPH']  = row['Inventory quantity'] || '';
+    out['Option Name 1']         = row['Option1 name'] || '';
+    out['Option Value 1']        = row['Option1 value'] || '';
+    out['Archived']              = 'N';
+
+    // Weight: grams → lb
+    const wG = parseFloat(row['Weight value (grams)']);
+    out['Weight (lb)'] = isNaN(wG) ? '' : round4(wG / 453.592);
+
+    output.push(out);
+  }
+  return output;
+}
+
+function buildMapObj(direction) {
+  // direction: 'sq2sh' or 'sh2sq'
+  const obj = {};
+  for (const m of state.mapping) {
+    if (direction === 'sq2sh') obj[m.square] = m.shopify;
+    else obj[m.shopify] = m.square;
+  }
+  return obj;
+}
+
+function round2(n) { return Math.round(n * 100) / 100; }
+function round4(n) { return Math.round(n * 10000) / 10000; }
+
+// ═══════════════════════════════════════════════════════════
+//  DOWNLOAD
+// ═══════════════════════════════════════════════════════════
+function downloadFile(format) {
+  const rows = state.convertedRows;
+  if (!rows || rows.length === 0) { showToast('No data to download', 'error'); return; }
+
+  if (format === 'csv') {
+    const csv = rowsToCSV(rows);
+    triggerDownload(csv, state.outputFilename + '.csv', 'text/csv');
+    showToast('📊 CSV downloaded!', 'success');
+  } else {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Products');
+    XLSX.writeFile(wb, state.outputFilename + '.xlsx');
+    showToast('📗 Excel file downloaded!', 'success');
+  }
+}
+
+function rowsToCSV(rows) {
+  if (!rows.length) return '';
+  const headers = Object.keys(rows[0]);
+  const escape = v => {
+    const s = String(v ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? '"' + s.replace(/"/g, '""') + '"'
+      : s;
+  };
+  const lines = [headers.map(escape).join(',')];
+  for (const row of rows) {
+    lines.push(headers.map(h => escape(row[h] ?? '')).join(','));
+  }
+  return lines.join('\r\n');
+}
+
+function triggerDownload(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAPPING TABLE UI
+// ═══════════════════════════════════════════════════════════
+let hasUnsavedChanges = false;
+
+function markUnsaved() {
+  hasUnsavedChanges = true;
+  document.getElementById('unsaved-indicator').style.display = 'inline-flex';
+}
+
+function clearUnsaved() {
+  hasUnsavedChanges = false;
+  document.getElementById('unsaved-indicator').style.display = 'none';
+}
+
+function renderMappingTable() {
+  const tbody = document.getElementById('mapping-tbody');
+  tbody.innerHTML = '';
+  state.mapping.forEach((m, idx) => {
+    const tr = document.createElement('tr');
+    tr.dataset.idx = idx;
+    tr.innerHTML = `
+      <td style="color:var(--muted); font-family:var(--mono); font-size:11px;">${String(idx+1).padStart(2,'0')}</td>
+      <td>
+        <input type="text"
+          value="${escAttr(m.square)}"
+          data-idx="${idx}" data-field="square"
+          oninput="updateMappingField(this)"
+          style="background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:11px; padding:5px 8px; border-radius:3px; width:100%; transition:border-color 0.15s;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+        />
+      </td>
+      <td class="map-arrow">↔</td>
+      <td>
+        <input type="text"
+          value="${escAttr(m.shopify)}"
+          data-idx="${idx}" data-field="shopify"
+          oninput="updateMappingField(this)"
+          style="background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:11px; padding:5px 8px; border-radius:3px; width:100%; transition:border-color 0.15s;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+        />
+      </td>
+      <td>
+        <input type="text"
+          value="${escAttr(m.note || '')}"
+          data-idx="${idx}" data-field="note"
+          oninput="updateMappingField(this)"
+          placeholder="Optional note…"
+          style="background:var(--surface2); border:1px solid var(--border); color:var(--muted); font-family:var(--sans); font-size:11px; padding:5px 8px; border-radius:3px; width:100%; font-style:italic; transition:border-color 0.15s;"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+        />
+      </td>
+      <td style="text-align:center;">
+        <button class="btn-icon" title="Remove this mapping" onclick="deleteMapping(${idx})">🗑</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateMappingField(input) {
+  const idx = parseInt(input.dataset.idx);
+  const field = input.dataset.field;
+  state.mapping[idx][field] = input.value;
+  markUnsaved();
+}
+
+function addMapping() {
+  const sqInput = document.getElementById('new-sq-field');
+  const shInput = document.getElementById('new-sh-field');
+  const noteInput = document.getElementById('new-note');
+
+  const sq = sqInput.value.trim();
+  const sh = shInput.value.trim();
+  const note = noteInput.value.trim();
+
+  if (!sq || !sh) {
+    showToast('❌ Both Square and Shopify field names are required', 'error');
+    // Highlight empty fields
+    if (!sq) { sqInput.style.borderColor = 'var(--red)'; setTimeout(() => sqInput.style.borderColor = 'var(--border)', 2000); }
+    if (!sh) { shInput.style.borderColor = 'var(--red)'; setTimeout(() => shInput.style.borderColor = 'var(--border)', 2000); }
+    return;
+  }
+
+  // Check for duplicate Square field
+  const dupIdx = state.mapping.findIndex(m => m.square.toLowerCase() === sq.toLowerCase() && m.shopify.toLowerCase() === sh.toLowerCase());
+  if (dupIdx >= 0) {
+    showToast('⚠ This exact mapping already exists (row ' + (dupIdx+1) + ')', 'error');
+    return;
+  }
+
+  const newId = state.mapping.length > 0 ? Math.max(...state.mapping.map(m => m.id || 0)) + 1 : 1;
+  state.mapping.push({ id: newId, square: sq, shopify: sh, note });
+
+  // Clear inputs
+  sqInput.value = '';
+  shInput.value = '';
+  noteInput.value = '';
+
+  renderMappingTable();
+  markUnsaved();
+
+  // Scroll table to bottom to show new row
+  const tbody = document.getElementById('mapping-tbody');
+  tbody.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  showToast(`✅ Mapping added: "${sq}" ↔ "${sh}"`, 'success');
+}
+
+function deleteMapping(idx) {
+  const m = state.mapping[idx];
+  if (!confirm(`Remove mapping:\n"${m.square}" ↔ "${m.shopify}"\n\nThis cannot be undone until you reset to defaults.`)) return;
+  state.mapping.splice(idx, 1);
+  renderMappingTable();
+  markUnsaved();
+  showToast(`🗑 Mapping removed`, 'success');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function escAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MAPPING IMPORT / EXPORT
+// ═══════════════════════════════════════════════════════════
+function exportMapping() {
+  const json = JSON.stringify(state.mapping, null, 2);
+  triggerDownload(json, 'sq_shopify_mapping.json', 'application/json');
+  showToast('📥 mapping.json downloaded!', 'success');
+}
+
+function importMapping(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data) || !data[0].square) throw new Error('Invalid mapping format');
+      state.mapping = data;
+      saveMapping();
+      renderMappingTable();
+      showTab('tab-mapping');
+      showToast('✅ Mapping imported successfully!', 'success');
+    } catch(err) {
+      showToast('❌ Invalid mapping file: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RESET
+// ═══════════════════════════════════════════════════════════
+function resetApp() {
+  state.file = null;
+  state.parsedRows = [];
+  state.sourceFormat = null;
+  state.convertedRows = [];
+  state.outputFilename = '';
+
+  document.getElementById('file-info').style.display = 'none';
+  document.getElementById('format-section').style.display = 'none';
+  document.getElementById('dropzone').style.display = 'block';
+  document.getElementById('fmt-square').classList.remove('selected');
+  document.getElementById('fmt-shopify').classList.remove('selected');
+  document.getElementById('btn-next-confirm').disabled = true;
+  document.getElementById('panel-upload').style.display = 'block';
+  document.getElementById('panel-confirm').style.display = 'none';
+  document.getElementById('panel-download').style.display = 'none';
+  document.getElementById('btn-reset').style.display = 'none';
+  document.getElementById('conf-warnings').style.display = 'none';
+  fileInput.value = '';
+  setStep(1);
+  showScreen('screen-converter');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  el.style.display = 'flex';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+setStep(1);
+</script>
+</body>
+</html>
