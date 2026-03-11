@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CustomerClean — Duplicate Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #020817;
+    --surface: #0f172a;
+    --surface2: #1e293b;
+    --surface3: #334155;
+    --border: #1e293b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --subtle: #94a3b8;
+    --blue: #3b82f6;
+    --blue-dim: #1e3a5f;
+    --green: #22c55e;
+    --green-dim: #14532d;
+    --red: #ef4444;
+    --red-dim: #3b1515;
+    --yellow: #f59e0b;
+    --purple: #a78bfa;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* HEADER */
+  header {
+    padding: 22px 40px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #020817 0%, #0f172a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+
+  .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--blue); }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  .badge {
+    font-size: 11px;
+    background: var(--blue-dim);
+    color: #60a5fa;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+
+  /* CONTAINER */
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 11px 24px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green-dim { background: #166534; color: #fff; }
+  .btn-dark { background: var(--surface2); color: var(--subtle); border: 1px solid var(--surface3); }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-sm { padding: 7px 14px; font-size: 13px; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  .card h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; color: #f1f5f9; }
+  .card .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+  /* MODE CARDS */
+  .mode-grid { display: flex; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+  .mode-card {
+    flex: 1; min-width: 220px;
+    padding: 28px;
+    border-radius: 12px;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    transition: all 0.2s;
+    text-align: center;
+    user-select: none;
+  }
+  .mode-card:hover { border-color: var(--blue); background: #1e3a5f11; }
+  .mode-card.active { border-color: var(--blue); background: #1e3a5f33; }
+  .mode-card .mode-icon { font-size: 40px; margin-bottom: 14px; }
+  .mode-card .mode-title { font-weight: 700; font-size: 16px; margin-bottom: 6px; }
+  .mode-card .mode-desc { color: var(--muted); font-size: 13px; }
+
+  /* DROPZONES */
+  .drop-grid { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
+  .dropzone {
+    flex: 1; min-width: 260px;
+    border: 2px dashed var(--surface3);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    cursor: pointer;
+    background: var(--surface);
+    transition: all 0.2s;
+  }
+  .dropzone:hover, .dropzone.drag { border-color: var(--blue); background: #1e3a5f22; }
+  .dropzone.loaded { border-color: var(--green); background: #14532d22; }
+  .dropzone .dz-icon { font-size: 36px; margin-bottom: 10px; }
+  .dropzone .dz-label { font-weight: 600; font-size: 15px; }
+  .dropzone .dz-sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  /* STATS ROW */
+  .stats-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 28px; }
+  .stat-box {
+    flex: 1; min-width: 120px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .stat-box .stat-val { font-size: 26px; font-weight: 800; }
+  .stat-box .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* PROGRESS BAR */
+  .progress-wrap {
+    background: var(--surface2);
+    border-radius: 999px;
+    height: 6px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), var(--green));
+    border-radius: 999px;
+    transition: width 0.3s;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    padding: 4px;
+    border-radius: 8px;
+    width: fit-content;
+    margin-bottom: 20px;
+  }
+  .tab-btn {
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .tab-btn.active { background: var(--blue-dim); color: #60a5fa; }
+
+  /* DUPLICATE CARDS */
+  .dup-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 18px;
+    transition: box-shadow 0.2s;
+  }
+  .dup-card.exact { border: 1px solid var(--red); box-shadow: 0 0 20px #ef444422; }
+  .dup-card.fuzzy { border: 1px solid var(--yellow); box-shadow: 0 0 20px #f59e0b22; }
+
+  .dup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .dup-type-badge {
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .dup-type-badge.exact { background: #ef444422; color: var(--red); border: 1px solid var(--red); }
+  .dup-type-badge.fuzzy { background: #f59e0b22; color: var(--yellow); border: 1px solid var(--yellow); }
+
+  .dup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .dec-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    background: transparent;
+    transition: all 0.15s;
+  }
+  .dec-btn:hover { opacity: 0.8; }
+  .dec-btn.merge { border-color: var(--green); color: var(--green); }
+  .dec-btn.merge.active { background: var(--green); color: #fff; }
+  .dec-btn.delete { border-color: var(--red); color: var(--red); }
+  .dec-btn.delete.active { background: var(--red); color: #fff; }
+  .dec-btn.skip { border-color: var(--muted); color: var(--muted); }
+  .dec-btn.skip.active { background: var(--muted); color: #fff; }
+
+  .record-labels { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .record-label {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 2px 8px;
+    background: var(--surface2);
+    border-radius: 4px;
+  }
+
+  .date-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .date-box {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .field-grid {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .field-row { margin-bottom: 10px; }
+  .field-row:last-child { margin-bottom: 0; }
+  .field-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+  }
+  .field-vals { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .field-val {
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+  }
+  .field-val.same { background: var(--surface); color: var(--subtle); border: 1px solid var(--surface3); }
+  .field-val.primary { background: var(--blue-dim); color: #60a5fa; border: 1px solid var(--blue); }
+  .field-val.secondary { background: var(--red-dim); color: #f87171; border: 1px solid var(--red); }
+  .field-val.empty { opacity: 0.4; font-style: italic; }
+  .conflict-tag { font-size: 11px; color: var(--yellow); }
+
+  .decision-note { margin-top: 10px; font-size: 12px; padding: 6px 10px; border-radius: 6px; background: var(--surface2); }
+
+  /* INFO BAR */
+  .info-bar {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--subtle);
+    margin-bottom: 20px;
+  }
+
+  /* ACTION ROW */
+  .action-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+  /* REVIEW HEADER */
+  .review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  /* EXPORT */
+  .export-section { margin-top: 16px; }
+  .export-group { margin-bottom: 14px; }
+  .export-group-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .export-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .tip-box {
+    margin-top: 20px;
+    padding: 14px 18px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--subtle);
+  }
+
+  /* EMPTY STATE */
+  .empty-state { text-align: center; padding: 48px; color: var(--muted); }
+  .empty-state .empty-icon { font-size: 52px; margin-bottom: 14px; }
+  .empty-state .empty-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+
+  /* BULK ACTIONS */
+  .bulk-row { display: flex; gap: 8px; }
+
+  @media (max-width: 600px) {
+    header { padding: 16px 20px; }
+    .container { padding: 24px 16px; }
+    .card { padding: 20px; }
+    .dup-header { flex-direction: column; align-items: flex-start; }
+  }
+
+  /* ANIMATION */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.3s ease forwards; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Customer<span>Clean</span></div>
+  <div class="header-right">
+    <span class="badge" id="stageBadge" style="display:none"></span>
+    <button class="btn btn-dark btn-sm" id="resetBtn" style="display:none" onclick="resetApp()">↺ Start Over</button>
+  </div>
+</header>
+
+<div class="container" id="appRoot"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+  mode: null,
+  fileA: null,
+  fileB: null,
+  stage: 'upload',
+  groups: [],
+  tab: 'exact',
+  cleanRows: null,
+  cleanRowsA: null,
+  cleanRowsB: null,
+  removedRows: null,
+  summary: null,
+};
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function levenshtein(a, b) {
+  a = String(a||'').toLowerCase().trim();
+  b = String(b||'').toLowerCase().trim();
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m+1}, (_,i) => Array.from({length: n+1}, (_,j) => j===0?i:0));
+  for (let j=0;j<=n;j++) dp[0][j]=j;
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j-1],dp[i-1][j],dp[i][j-1]);
+  return dp[m][n];
+}
+function similarity(a,b) {
+  if (!a&&!b) return 1; if (!a||!b) return 0;
+  const max = Math.max(String(a).length, String(b).length);
+  return max===0 ? 1 : 1 - levenshtein(a,b)/max;
+}
+const normalizeEmail   = e => String(e||'').toLowerCase().trim();
+const normalizePhone   = p => String(p||'').replace(/\D/g,'');
+const normalizeName    = n => String(n||'').toLowerCase().replace(/\s+/g,' ').trim();
+const normalizeAddress = a => String(a||'').toLowerCase().replace(/\s+/g,' ').trim();
+
+const FIELDS = [
+  { key:'email',    label:'Email',           norm: normalizeEmail,   thresh: 0.92 },
+  { key:'phone',    label:'Phone',           norm: normalizePhone,   thresh: 0.95 },
+  { key:'fullName', label:'Full Name',       norm: normalizeName,    thresh: 0.85 },
+  { key:'company',  label:'Company',         norm: normalizeName,    thresh: 0.85 },
+  { key:'address',  label:'Mailing Address', norm: normalizeAddress, thresh: 0.82 },
+];
+
+function detectCols(headers) {
+  const h = headers.map(x => String(x).toLowerCase().trim());
+  const find = ps => { for (const p of ps) { const i=h.findIndex(x=>x.includes(p)); if (i!==-1) return headers[i]; } return null; };
+  return {
+    email:    find(['email','e-mail','mail']),
+    phone:    find(['phone','mobile','cell','tel']),
+    fullName: find(['full name','name','customer name','contact']),
+    company:  find(['company','organization','org','business','firm']),
+    address:  find(['address','mailing','street','location']),
+    date:     find(['date','created','modified','updated','timestamp']),
+  };
+}
+
+function parseRows(sheet, fileLastModified) {
+  const json = XLSX.utils.sheet_to_json(sheet, {defval:''});
+  if (!json.length) return [];
+  const headers = Object.keys(json[0]);
+  const cols = detectCols(headers);
+  return json.map((row,i) => ({
+    _id: i, _raw: row, _headers: headers, _cols: cols,
+    fullName: row[cols.fullName]||'',
+    email:    row[cols.email]   ||'',
+    phone:    row[cols.phone]   ||'',
+    company:  row[cols.company] ||'',
+    address:  row[cols.address] ||'',
+    date:     cols.date ? row[cols.date] : '',
+    fileDate: fileLastModified ? new Date(fileLastModified).toLocaleString() : '',
+  }));
+}
+
+function completeness(r) { return FIELDS.filter(f => r[f.key]&&String(r[f.key]).trim()).length; }
+
+function findDuplicates(rows) {
+  const exact=[], fuzzy=[], visited=new Set();
+  for (let i=0;i<rows.length;i++) {
+    if (visited.has(i)) continue;
+    const em=[i], fm=[i];
+    for (let j=i+1;j<rows.length;j++) {
+      if (visited.has(j)) continue;
+      let isExact=false, isFuzzy=false;
+      for (const f of FIELDS) {
+        const a=f.norm(rows[i][f.key]), b=f.norm(rows[j][f.key]);
+        if (!a||!b) continue;
+        if (a===b) { isExact=true; break; }
+        if (similarity(a,b)>=f.thresh) isFuzzy=true;
+      }
+      if (isExact) { em.push(j); visited.add(j); }
+      else if (isFuzzy) fm.push(j);
+    }
+    if (em.length>1) { visited.add(i); exact.push({id:`e${i}`,type:'exact',records:em.map(x=>({...rows[x]})),decision:null}); }
+    if (fm.length>1&&em.length===1) fuzzy.push({id:`f${i}`,type:'fuzzy',records:fm.map(x=>({...rows[x]})),decision:null});
+  }
+  return {exact, fuzzy};
+}
+
+function findCrossDuplicates(rowsA, rowsB) {
+  const exact=[], fuzzy=[];
+  for (let i=0;i<rowsA.length;i++) {
+    for (let j=0;j<rowsB.length;j++) {
+      let isExact=false, isFuzzy=false;
+      for (const f of FIELDS) {
+        const a=f.norm(rowsA[i][f.key]), b=f.norm(rowsB[j][f.key]);
+        if (!a||!b) continue;
+        if (a===b) { isExact=true; break; }
+        if (similarity(a,b)>=f.thresh) isFuzzy=true;
+      }
+      const recs=[{...rowsA[i],_source:'File A'},{...rowsB[j],_source:'File B'}];
+      if (isExact) exact.push({id:`xe${i}_${j}`,type:'exact',records:recs,decision:null});
+      else if (isFuzzy) fuzzy.push({id:`xf${i}_${j}`,type:'fuzzy',records:recs,decision:null});
+    }
+  }
+  return {exact, fuzzy};
+}
+
+function buildCleanList(rows, groups) {
+  const deleted=new Set(), merged=new Map();
+  for (const g of groups) {
+    if (g.decision==='delete') { g.records.slice(1).forEach(r=>deleted.add(r._id)); }
+    else if (g.decision==='merge') {
+      const sorted=[...g.records].sort((a,b)=>{
+        const da=a.date?new Date(a.date):0, db=b.date?new Date(b.date):0;
+        if (db!==da) return db-da;
+        return completeness(b)-completeness(a);
+      });
+      const base={...sorted[0]};
+      for (const r of sorted.slice(1)) {
+        for (const f of FIELDS) { if (!base[f.key]&&r[f.key]) base[f.key]=r[f.key]; }
+        deleted.add(r._id);
+      }
+      merged.set(sorted[0]._id, base);
+    }
+  }
+  return rows.map(r=>{
+    if (deleted.has(r._id)) return null;
+    if (merged.has(r._id)) return merged.get(r._id);
+    return r;
+  }).filter(Boolean);
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+function exportXLSX(rows, filename) {
+  if (!rows.length) return;
+  const headers = rows[0]._headers || Object.keys(rows[0]);
+  const data = rows.map(r => r._raw || r);
+  const ws = XLSX.utils.json_to_sheet(data, {header: headers});
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Cleaned');
+  XLSX.writeFile(wb, filename+'.xlsx');
+}
+
+function exportCSV(rows, filename) {
+  if (!rows.length) return;
+  const headers = rows[0]._headers || Object.keys(rows[0]._raw || rows[0]);
+  const csvRows = rows.map(r=>{
+    const src=r._raw||r;
+    return headers.map(h=>`"${String(src[h]||'').replace(/"/g,'""')}"`).join(',');
+  });
+  const blob = new Blob([[headers.join(','),...csvRows].join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename+'.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── File Loading ─────────────────────────────────────────────────────────────
+function loadFile(file, callback) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = parseRows(ws, file.lastModified);
+      callback({name: file.name, rows, lastModified: file.lastModified});
+    } catch(err) { alert('Error reading file: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── Render Engine ────────────────────────────────────────────────────────────
+function render() {
+  const root = document.getElementById('appRoot');
+  const badge = document.getElementById('stageBadge');
+  const resetBtn = document.getElementById('resetBtn');
+
+  // Header badge
+  if (state.stage === 'upload') { badge.style.display='none'; resetBtn.style.display='none'; }
+  else {
+    badge.style.display='inline-block'; resetBtn.style.display='inline-block';
+    const decided = state.groups.filter(g=>g.decision!==null).length;
+    if (state.stage==='confirm') badge.textContent='📊 Analysis Ready';
+    else if (state.stage==='review') badge.textContent=`🔍 Reviewing (${decided}/${state.groups.length})`;
+    else badge.textContent='✅ Export Ready';
+  }
+
+  if (state.stage==='upload') root.innerHTML = renderUpload();
+  else if (state.stage==='confirm') root.innerHTML = renderConfirm();
+  else if (state.stage==='review') root.innerHTML = renderReview();
+  else if (state.stage==='export') root.innerHTML = renderExport();
+
+  attachEvents();
+}
+
+// ── UPLOAD SCREEN
+function renderUpload() {
+  const modeA = state.mode==='single' ? ' active' : '';
+  const modeB = state.mode==='compare' ? ' active' : '';
+  const canAnalyze = (state.mode==='single'&&state.fileA) || (state.mode==='compare'&&state.fileA&&state.fileB);
+
+  let dropzones = '';
+  if (state.mode) {
+    dropzones = `
+    <div class="drop-grid">
+      ${renderDropzone('A', state.fileA, state.mode==='compare' ? 'File A — Drop Excel/CSV here' : 'Drop your Excel or CSV file here')}
+      ${state.mode==='compare' ? renderDropzone('B', state.fileB, 'File B — Drop Excel/CSV here') : ''}
+    </div>
+    <div class="info-bar">
+      <strong style="color:#60a5fa">Detection fields:</strong> Email · Phone · Full Name · Company · Mailing Address &nbsp;|&nbsp;
+      <strong style="color:#a78bfa">Exact 🔴 and Fuzzy 🟡 matches shown separately</strong>
+    </div>
+    ${canAnalyze ? `<button class="btn btn-blue" onclick="doAnalyze()">🔍 Analyze for Duplicates →</button>` : ''}`;
+  }
+
+  return `
+  <div class="fade-in">
+    <div style="margin-bottom:32px">
+      <h2 style="font-size:28px;font-weight:800;margin-bottom:8px;color:#f1f5f9">Customer Data Deduplication</h2>
+      <p style="color:var(--muted);font-size:15px;margin-bottom:28px">Find, review, and clean duplicate customer records from your Excel files.</p>
+
+      <div class="mode-grid">
+        <div class="mode-card${modeA}" onclick="setMode('single')">
+          <div class="mode-icon">📋</div>
+          <div class="mode-title">Single File Analysis</div>
+          <div class="mode-desc">Find & clean duplicates within one file</div>
+        </div>
+        <div class="mode-card${modeB}" onclick="setMode('compare')">
+          <div class="mode-icon">🔀</div>
+          <div class="mode-title">Two File Comparison</div>
+          <div class="mode-desc">Find duplicates across two different files</div>
+        </div>
+      </div>
+    </div>
+
+    ${state.mode ? `<div class="card">
+      <h2>Upload File${state.mode==='compare'?'s':''}</h2>
+      <p class="sub">Supported formats: .xlsx, .xls, .csv</p>
+      ${dropzones}
+    </div>` : ''}
+  </div>`;
+}
+
+function renderDropzone(id, file, label) {
+  if (file) {
+    return `<div class="dropzone loaded" onclick="triggerFileInput('${id}')" ondragover="dzDrag(event,'dz${id}')" ondragleave="dzLeave('dz${id}')" ondrop="dzDrop(event,'${id}')" id="dz${id}">
+      <div class="dz-icon">✅</div>
+      <div class="dz-label" style="color:var(--green)">${file.name}</div>
+      <div class="dz-sub">${file.rows.length} rows loaded · Click to replace</div>
+      <input type="file" id="file${id}" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileInput('${id}',this)">
+    </div>`;
+  }
+  return `<div class="dropzone" onclick="triggerFileInput('${id}')" ondragover="dzDrag(event,'dz${id}')" ondragleave="dzLeave('dz${id}')" ondrop="dzDrop(event,'${id}')" id="dz${id}">
+    <div class="dz-icon">📂</div>
+    <div class="dz-label">${label}</div>
+    <div class="dz-sub">Click or drag & drop</div>
+    <input type="file" id="file${id}" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileInput('${id}',this)">
+  </div>`;
+}
+
+// ── CONFIRM SCREEN
+function renderConfirm() {
+  const totalExact = state.groups.filter(g=>g.type==='exact').length;
+  const totalFuzzy = state.groups.filter(g=>g.type==='fuzzy').length;
+  const totalRows  = (state.fileA?.rows.length||0)+(state.fileB?.rows.length||0);
+
+  if (state.groups.length===0) return `
+  <div class="card fade-in">
+    <h2>📊 Analysis Complete</h2>
+    <div class="empty-state">
+      <div class="empty-icon">🎉</div>
+      <div class="empty-title">No duplicates found!</div>
+      <p>Your data is already clean.</p>
+    </div>
+  </div>`;
+
+  return `
+  <div class="card fade-in">
+    <h2>📊 Analysis Complete — Review Before Proceeding</h2>
+    <p class="sub">Here's what was found. Confirm below to begin reviewing each duplicate group.</p>
+
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val" style="color:#60a5fa">${totalRows}</div><div class="stat-label">Total Records</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--red)">${totalExact}</div><div class="stat-label">🔴 Exact Groups</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--yellow)">${totalFuzzy}</div><div class="stat-label">🟡 Fuzzy Groups</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--purple)">${state.groups.length}</div><div class="stat-label">Total Groups</div></div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-blue" onclick="goReview()">✓ Proceed to Review →</button>
+      <button class="btn btn-dark" onclick="resetApp()">✕ Cancel</button>
+    </div>
+  </div>`;
+}
+
+// ── REVIEW SCREEN
+function renderReview() {
+  const decided  = state.groups.filter(g=>g.decision!==null).length;
+  const total    = state.groups.length;
+  const pct      = total>0 ? (decided/total)*100 : 0;
+  const visible  = state.groups.filter(g=>g.type===state.tab);
+  const totalEx  = state.groups.filter(g=>g.type==='exact').length;
+  const totalFz  = state.groups.filter(g=>g.type==='fuzzy').length;
+  const allDone  = decided===total;
+
+  const dupCards = visible.length===0
+    ? `<div class="empty-state"><div class="empty-icon">✨</div><div class="empty-title">No ${state.tab} matches</div></div>`
+    : visible.map((g,i)=>renderDupCard(g,i,visible.length)).join('');
+
+  return `
+  <div class="fade-in">
+    <div class="review-header">
+      <div>
+        <h2 style="font-size:22px;font-weight:700;margin-bottom:4px">🔍 Review Duplicates</h2>
+        <p style="color:var(--muted);font-size:13px">
+          ${decided} of ${total} decided &nbsp;·&nbsp;
+          ${state.groups.filter(g=>g.decision==='merge').length} merging &nbsp;·&nbsp;
+          ${state.groups.filter(g=>g.decision==='delete').length} deleting &nbsp;·&nbsp;
+          ${state.groups.filter(g=>g.decision==='skip').length} skipping
+        </p>
+      </div>
+      <div class="bulk-row">
+        <button class="btn btn-dark btn-sm" onclick="bulkDecide('merge')">Merge All</button>
+        <button class="btn btn-dark btn-sm" onclick="bulkDecide('delete')">Delete All Dupes</button>
+        ${allDone ? `<button class="btn btn-green" onclick="applyChanges()">✅ Apply & Export →</button>` : ''}
+      </div>
+    </div>
+
+    <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+
+    <div class="tabs">
+      <button class="tab-btn ${state.tab==='exact'?'active':''}" onclick="setTab('exact')">🔴 Exact (${totalEx})</button>
+      <button class="tab-btn ${state.tab==='fuzzy'?'active':''}" onclick="setTab('fuzzy')">🟡 Fuzzy (${totalFz})</button>
+    </div>
+
+    ${dupCards}
+
+    ${allDone ? `<div style="text-align:center;margin-top:16px"><button class="btn btn-green" onclick="applyChanges()">✅ Apply All Changes & Export →</button></div>` : ''}
+  </div>`;
+}
+
+function renderDupCard(g, idx, total) {
+  const {records, type, decision, id} = g;
+
+  const fieldRows = FIELDS.map(f=>{
+    const vals = records.map(r=>String(r[f.key]||'').trim());
+    const allSame = vals.every(v=>v===vals[0]);
+    const valHtml = vals.map((v,i)=>{
+      const cls = allSame ? 'same' : i===0 ? 'primary' : 'secondary';
+      return `<span class="field-val ${cls} ${!v?'empty':''}">${v||'empty'}</span>`;
+    }).join('');
+    const conflict = !allSame ? `<span class="conflict-tag">⚠ conflict</span>` : '';
+    return `<div class="field-row">
+      <div class="field-label">${f.label}</div>
+      <div class="field-vals">${valHtml}${conflict}</div>
+    </div>`;
+  }).join('');
+
+  const dateBoxes = records.map((r,i)=>`
+    <div class="date-box">
+      <span style="color:var(--muted)">Record ${i+1}${r._source?` · ${r._source}`:''}: </span>
+      ${r.date ? `<span style="color:#a78bfa">📅 ${r.date}</span> ` : ''}
+      ${r.fileDate ? `<span style="color:#34d399">🗂 ${r.fileDate}</span>` : ''}
+      ${!r.date&&!r.fileDate ? `<span style="color:var(--muted)">No date available</span>` : ''}
+    </div>`).join('');
+
+  const decisionNote = decision==='merge'
+    ? `<div class="decision-note" style="color:var(--green)">✓ Will merge — most recent + most complete fields win</div>`
+    : decision==='delete'
+    ? `<div class="decision-note" style="color:var(--red)">✕ Duplicates will be deleted, keeping first record</div>`
+    : decision==='skip'
+    ? `<div class="decision-note" style="color:var(--muted)">— Skipped — no changes made to this group</div>`
+    : '';
+
+  return `
+  <div class="dup-card ${type}" id="card_${id}">
+    <div class="dup-header">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="dup-type-badge ${type}">${type==='exact'?'🔴 Exact Match':'🟡 Fuzzy Match'}</span>
+        <span style="color:var(--muted);font-size:12px">${idx+1} of ${total} · ${records.length} records</span>
+      </div>
+      <div class="dup-actions">
+        <button class="dec-btn merge ${decision==='merge'?'active':''}" onclick="decide('${id}','merge')">✓ Merge</button>
+        <button class="dec-btn delete ${decision==='delete'?'active':''}" onclick="decide('${id}','delete')">✕ Delete</button>
+        <button class="dec-btn skip ${decision==='skip'?'active':''}" onclick="decide('${id}','skip')">— Skip</button>
+      </div>
+    </div>
+
+    <div class="record-labels">
+      ${records.map((r,i)=>`<span class="record-label">Record ${i+1}${r._source?` · ${r._source}`:''}</span>`).join('')}
+    </div>
+
+    <div class="date-row">${dateBoxes}</div>
+    <div class="field-grid">${fieldRows}</div>
+    ${decisionNote}
+  </div>`;
+}
+
+// ── EXPORT SCREEN
+function renderExport() {
+  const s       = state.summary;
+  const isTwo   = state.mode==='compare';
+  const removed = state.removedRows?.length||0;
+
+  const summaryTable = `
+    <div style="background:var(--surface2);border-radius:10px;padding:18px;margin-bottom:24px">
+      <div style="font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px">📊 Change Summary Report</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">
+        <div style="color:var(--muted)">Mode</div><div style="color:var(--text)">${s.mode}</div>
+        <div style="color:var(--muted)">File A</div><div style="color:var(--text)">${s.fileA}</div>
+        ${isTwo?`<div style="color:var(--muted)">File B</div><div style="color:var(--text)">${s.fileB}</div>`:''}
+        <div style="color:var(--muted)">Generated</div><div style="color:var(--text)">${s.generatedAt}</div>
+        <div style="grid-column:1/-1;border-top:1px solid var(--surface3);margin:6px 0"></div>
+        <div style="color:var(--muted)">Total Input Records</div><div style="color:#60a5fa;font-weight:700">${s.totalInputRecords}</div>
+        <div style="color:var(--muted)">Total Clean Records</div><div style="color:var(--green);font-weight:700">${s.totalCleanRecords}</div>
+        <div style="color:var(--muted)">Removed / Merged Out</div><div style="color:var(--red);font-weight:700">${s.totalRemoved}</div>
+        <div style="grid-column:1/-1;border-top:1px solid var(--surface3);margin:6px 0"></div>
+        <div style="color:var(--muted)">🔴 Exact Groups Found</div><div style="color:var(--red)">${s.exactGroups}</div>
+        <div style="color:var(--muted)">🟡 Fuzzy Groups Found</div><div style="color:var(--yellow)">${s.fuzzyGroups}</div>
+        <div style="color:var(--muted)">✓ Merged</div><div style="color:var(--green)">${s.merged}</div>
+        <div style="color:var(--muted)">✕ Deleted</div><div style="color:var(--red)">${s.deleted}</div>
+        <div style="color:var(--muted)">— Skipped</div><div style="color:var(--muted)">${s.skipped}</div>
+        ${isTwo?`
+        <div style="grid-column:1/-1;border-top:1px solid var(--surface3);margin:6px 0"></div>
+        <div style="color:var(--muted)">Clean Records from File A</div><div style="color:#60a5fa">${s.cleanACount}</div>
+        <div style="color:var(--muted)">Clean Records from File B</div><div style="color:#a78bfa">${s.cleanBCount}</div>`:''}
+      </div>
+    </div>`;
+
+  const twoFileExports = isTwo ? `
+    <div class="export-group">
+      <div class="export-group-label">🔀 Combined Master List (Both Files Merged)</div>
+      <div class="export-btns">
+        <button class="btn btn-green" onclick="doExportXLSX('clean')">📥 Combined .xlsx</button>
+        <button class="btn btn-green-dim" onclick="doExportCSV('clean')">📥 Combined .csv</button>
+      </div>
+    </div>
+    <div class="export-group">
+      <div class="export-group-label">📋 File A — Cleaned Separately (${s.cleanACount} records)</div>
+      <div class="export-btns">
+        <button class="btn btn-blue" onclick="doExportXLSX('cleanA')">📥 File A .xlsx</button>
+        <button class="btn btn-dark" onclick="doExportCSV('cleanA')">📥 File A .csv</button>
+      </div>
+    </div>
+    <div class="export-group">
+      <div class="export-group-label">📋 File B — Cleaned Separately (${s.cleanBCount} records)</div>
+      <div class="export-btns">
+        <button class="btn btn-blue" onclick="doExportXLSX('cleanB')">📥 File B .xlsx</button>
+        <button class="btn btn-dark" onclick="doExportCSV('cleanB')">📥 File B .csv</button>
+      </div>
+    </div>` : `
+    <div class="export-group">
+      <div class="export-group-label">📋 Clean Customer List (${s.totalCleanRecords} records)</div>
+      <div class="export-btns">
+        <button class="btn btn-green" onclick="doExportXLSX('clean')">📥 Download .xlsx</button>
+        <button class="btn btn-green-dim" onclick="doExportCSV('clean')">📥 Download .csv</button>
+      </div>
+    </div>`;
+
+  return `
+  <div class="card fade-in">
+    <h2>✅ Changes Applied — Export Your Clean Data</h2>
+    <p class="sub">Your data has been processed. Download your files below in any format.</p>
+
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-val" style="color:var(--green)">${s.totalCleanRecords}</div><div class="stat-label">Clean Records</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--red)">${s.totalRemoved}</div><div class="stat-label">Removed</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#60a5fa">${s.merged}</div><div class="stat-label">Merged</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#f87171">${s.deleted}</div><div class="stat-label">Deleted</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:var(--muted)">${s.skipped}</div><div class="stat-label">Skipped</div></div>
+    </div>
+
+    ${summaryTable}
+
+    <div class="export-section">
+      ${twoFileExports}
+
+      <div class="export-group">
+        <div class="export-group-label">📊 Summary Report</div>
+        <div class="export-btns">
+          <button class="btn btn-dark" onclick="doExportXLSX('summary')">📥 Summary .xlsx</button>
+        </div>
+      </div>
+
+      ${removed>0?`
+      <div class="export-group">
+        <div class="export-group-label">🗂 Removed Duplicates Audit Log (${removed} records)</div>
+        <div class="export-btns">
+          <button class="btn btn-dark" onclick="doExportXLSX('removed')">📥 Log .xlsx</button>
+          <button class="btn btn-dark" onclick="doExportCSV('removed')">📥 Log .csv</button>
+        </div>
+      </div>`:''}
+    </div>
+
+    <div class="tip-box">
+      💡 <strong style="color:#60a5fa">Tip:</strong> In Two File mode you can download a combined master list <em>or</em> each file cleaned separately — or all three. The audit log tracks every record removed or merged for compliance purposes.
+    </div>
+  </div>`;
+}
+
+// ─── Event Handlers ───────────────────────────────────────────────────────────
+function attachEvents() {}  // events are inline onclick for simplicity
+
+window.setMode = mode => { state.mode=mode; state.fileA=null; state.fileB=null; render(); };
+window.resetApp = () => {
+  Object.assign(state,{mode:null,fileA:null,fileB:null,stage:'upload',groups:[],tab:'exact',cleanRows:null,cleanRowsA:null,cleanRowsB:null,removedRows:null,summary:null});
+  render();
+};
+
+window.triggerFileInput = id => document.getElementById('file'+id)?.click();
+window.handleFileInput = (id, input) => {
+  const file = input.files[0]; if (!file) return;
+  loadFile(file, data => { state['file'+id]=data; render(); });
+};
+window.dzDrag = (e,id) => { e.preventDefault(); document.getElementById(id)?.classList.add('drag'); };
+window.dzLeave = id => document.getElementById(id)?.classList.remove('drag');
+window.dzDrop = (e,id) => {
+  e.preventDefault();
+  document.getElementById('dz'+id)?.classList.remove('drag');
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  loadFile(file, data => { state['file'+id]=data; render(); });
+};
+
+window.doAnalyze = () => {
+  let found;
+  if (state.mode==='single') {
+    const r = findDuplicates(state.fileA.rows);
+    found = [...r.exact,...r.fuzzy];
+  } else {
+    const r = findCrossDuplicates(state.fileA.rows, state.fileB.rows);
+    found = [...r.exact,...r.fuzzy];
+  }
+  state.groups = found;
+  state.stage = 'confirm';
+  render();
+};
+
+window.goReview = () => { state.stage='review'; render(); };
+window.setTab   = tab => { state.tab=tab; render(); };
+
+window.decide = (id, decision) => {
+  state.groups = state.groups.map(g=>g.id===id?{...g,decision}:g);
+  render();
+};
+
+window.bulkDecide = decision => {
+  state.groups = state.groups.map(g=>({...g,decision}));
+  render();
+};
+
+window.applyChanges = () => {
+  const rowsA = state.fileA.rows.map(r=>({...r,_source:'File A'}));
+  const rowsB = state.mode==='compare' ? state.fileB.rows.map(r=>({...r,_source:'File B'})) : [];
+  const allRows = state.mode==='single' ? state.fileA.rows : [...rowsA,...rowsB];
+
+  const clean   = buildCleanList(allRows, state.groups);
+  const removed = allRows.filter(r=>!clean.find(c=>c._id===r._id));
+
+  // Separate cleaned lists per source for two-file mode
+  const cleanA = clean.filter(r=>!r._source||r._source==='File A');
+  const cleanB = clean.filter(r=>r._source==='File B');
+
+  // Build summary report data
+  const now = new Date().toLocaleString();
+  const summary = {
+    generatedAt: now,
+    mode: state.mode==='single'?'Single File Analysis':'Two File Comparison',
+    fileA: state.fileA?.name||'',
+    fileB: state.fileB?.name||'',
+    totalInputRecords: allRows.length,
+    totalCleanRecords: clean.length,
+    totalRemoved: removed.length,
+    exactGroups: state.groups.filter(g=>g.type==='exact').length,
+    fuzzyGroups: state.groups.filter(g=>g.type==='fuzzy').length,
+    merged: state.groups.filter(g=>g.decision==='merge').length,
+    deleted: state.groups.filter(g=>g.decision==='delete').length,
+    skipped: state.groups.filter(g=>g.decision==='skip').length,
+    cleanACount: cleanA.length,
+    cleanBCount: cleanB.length,
+  };
+
+  state.cleanRows   = clean;
+  state.cleanRowsA  = cleanA;
+  state.cleanRowsB  = cleanB;
+  state.removedRows = removed;
+  state.summary     = summary;
+  state.stage = 'export';
+  render();
+};
+
+window.doExportXLSX = type => {
+  if (type==='clean')    return exportXLSX(state.cleanRows,   'cleaned-customers-combined');
+  if (type==='cleanA')   return exportXLSX(state.cleanRowsA,  'cleaned-file-A');
+  if (type==='cleanB')   return exportXLSX(state.cleanRowsB,  'cleaned-file-B');
+  if (type==='removed')  return exportXLSX(state.removedRows, 'removed-duplicates-log');
+  if (type==='summary')  return exportSummaryXLSX();
+};
+window.doExportCSV = type => {
+  if (type==='clean')    return exportCSV(state.cleanRows,   'cleaned-customers-combined');
+  if (type==='cleanA')   return exportCSV(state.cleanRowsA,  'cleaned-file-A');
+  if (type==='cleanB')   return exportCSV(state.cleanRowsB,  'cleaned-file-B');
+  if (type==='removed')  return exportCSV(state.removedRows, 'removed-duplicates-log');
+};
+
+function exportSummaryXLSX() {
+  const s = state.summary;
+  const rows = [
+    {Field:'Generated At',          Value: s.generatedAt},
+    {Field:'Mode',                  Value: s.mode},
+    {Field:'File A',                Value: s.fileA},
+    {Field:'File B',                Value: s.fileB||'N/A'},
+    {Field:'',                      Value:''},
+    {Field:'Total Input Records',   Value: s.totalInputRecords},
+    {Field:'Total Clean Records',   Value: s.totalCleanRecords},
+    {Field:'Total Removed/Merged',  Value: s.totalRemoved},
+    {Field:'',                      Value:''},
+    {Field:'Exact Duplicate Groups',Value: s.exactGroups},
+    {Field:'Fuzzy Duplicate Groups',Value: s.fuzzyGroups},
+    {Field:'',                      Value:''},
+    {Field:'Decisions — Merged',    Value: s.merged},
+    {Field:'Decisions — Deleted',   Value: s.deleted},
+    {Field:'Decisions — Skipped',   Value: s.skipped},
+    {Field:'',                      Value:''},
+    {Field:'Clean Records (File A)',Value: s.cleanACount},
+    {Field:'Clean Records (File B)',Value: s.cleanBCount||'N/A'},
+  ];
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:28},{wch:36}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Summary Report');
+  XLSX.writeFile(wb, 'dedup-summary-report.xlsx');
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
