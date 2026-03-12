@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FPH Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #root { height: 100%; }
+  body { background: #0a0c0f; color: #e8e2d5; font-family: 'DM Sans', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0c0f; }
+  ::-webkit-scrollbar-thumb { background: #2a2d35; border-radius: 3px; }
+  input, select, button, textarea { font-family: 'DM Sans', sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ─── SAMPLE DATA ──────────────────────────────────────────────────────────────
+const SAMPLE_CUSTOMERS = [
+  { nkey:1, sal:"Mr.", fname:"James", lname:"Worthington", company:"Worthington & Associates", body:"1420 Harbor Blvd", zip:"90210", city:"Beverly Hills", state:"CA", country:"USA", phoffice:"310-555-0182", phhome:"310-555-9021", phfax:"310-555-1100", email:"james@worthington.com", source:"Trade Show", comments:"High-value collector. Prefers vintage Montblancs.", date_added:"2019-03-12", monthlyspecials:true, vintagespecials:true, sendCurrCat:true, nocatcheck:false, vcheck:true, pcheck:false, lcheck:true, vcomp:false, vexp:"2024-01-01", lists:"Vintage,Limited" },
+  { nkey:2, sal:"Dr.", fname:"Elena", lname:"Vasquez", company:"", body:"88 Meridian Court", zip:"10013", city:"New York", state:"NY", country:"USA", phoffice:"", phhome:"212-555-4477", phfax:"", email:"evasquez@nymed.org", source:"Website", comments:"Interested in limited editions only.", date_added:"2020-07-22", monthlyspecials:false, vintagespecials:false, sendCurrCat:true, nocatcheck:false, vcheck:false, pcheck:false, lcheck:true, vcomp:false, vexp:null, lists:"Limited" },
+  { nkey:3, sal:"Ms.", fname:"Patricia", lname:"Chen", company:"Chen Law Group", body:"500 Sutter St Suite 800", zip:"94102", city:"San Francisco", state:"CA", country:"USA", phoffice:"415-555-2200", phhome:"", phfax:"415-555-2201", email:"pchen@chenlawgroup.com", source:"Referral", comments:"Referred by James Worthington. Excellent prospect.", date_added:"2021-01-05", monthlyspecials:true, vintagespecials:false, sendCurrCat:true, nocatcheck:false, vcheck:false, pcheck:true, lcheck:false, vcomp:false, vexp:null, lists:"Monthly" },
+  { nkey:4, sal:"Mr.", fname:"Theodore", lname:"Blackwood", company:"Blackwood Capital", body:"22 Trafalgar Square", zip:"WC2N 5DN", city:"London", state:"", country:"UK", phoffice:"+44-20-7946-0182", phhome:"", phfax:"", email:"tblackwood@blackwoodcap.co.uk", source:"Magazine Ad", comments:"International customer. Ships to London only.", date_added:"2018-11-30", monthlyspecials:true, vintagespecials:true, sendCurrCat:false, nocatcheck:true, vcheck:true, pcheck:false, lcheck:false, vcomp:true, vexp:"2023-10-01", lists:"Vintage,Monthly" },
+  { nkey:5, sal:"Mrs.", fname:"Sandra", lname:"Okafor", company:"", body:"3301 Lakewood Ave", zip:"60601", city:"Chicago", state:"IL", country:"USA", phoffice:"", phhome:"773-555-8834", phfax:"", email:"sandra.okafor@gmail.com", source:"Website", comments:"", date_added:"2022-04-18", monthlyspecials:true, vintagespecials:false, sendCurrCat:true, nocatcheck:false, vcheck:false, pcheck:false, lcheck:false, vcomp:false, vexp:null, lists:"Monthly" },
+];
+
+const SAMPLE_PURCHASES = [
+  { pkey:1, nkey:1, item:"Montblanc 149 Vintage Black (1960s)", dop:"2023-09-14", quantity:1, pvalue:1850.00, shipdate:"2023-09-16", invoicenum:"INV-2309-001", collectible:"Vintage" },
+  { pkey:2, nkey:1, item:"Pelikan M800 Green-Black", dop:"2023-03-02", quantity:2, pvalue:420.00, shipdate:"2023-03-04", invoicenum:"INV-2303-004", collectible:"New" },
+  { pkey:3, nkey:2, item:"Visconti Homo Sapiens LE Lava", dop:"2023-11-20", quantity:1, pvalue:890.00, shipdate:"2023-11-22", invoicenum:"INV-2311-002", collectible:"Limited" },
+  { pkey:4, nkey:3, item:"Pilot Custom 823 Amber", dop:"2024-01-08", quantity:1, pvalue:310.00, shipdate:"2024-01-10", invoicenum:"INV-2401-001", collectible:"New" },
+  { pkey:5, nkey:4, item:"Parker Duofold Centennial 1920s", dop:"2022-07-15", quantity:1, pvalue:2200.00, shipdate:"2022-07-20", invoicenum:"INV-2207-003", collectible:"Vintage" },
+  { pkey:6, nkey:4, item:"Waterman Gentleman Vintage Gold", dop:"2023-01-11", quantity:1, pvalue:750.00, shipdate:"2023-01-14", invoicenum:"INV-2301-002", collectible:"Vintage" },
+  { pkey:7, nkey:1, item:"Omas Extra Lucens LE 2021", dop:"2023-12-01", quantity:1, pvalue:1100.00, shipdate:"2023-12-03", invoicenum:"INV-2312-001", collectible:"Limited" },
+  { pkey:8, nkey:5, item:"Lamy Safari Charcoal", dop:"2024-02-14", quantity:3, pvalue:32.00, shipdate:"2024-02-15", invoicenum:"INV-2402-001", collectible:"New" },
+];
+
+const SAMPLE_ITEMS = [
+  { pkey:1, sku:"MB-149-VIN", description:"Montblanc 149 Vintage Black (1960s)", list:2100.00, sell:1850.00, cost:900.00, manufacturer:"Montblanc", collectible:"Vintage" },
+  { pkey:2, sku:"PL-M800-GB", description:"Pelikan M800 Green-Black", list:490.00, sell:420.00, cost:210.00, manufacturer:"Pelikan", collectible:"New" },
+  { pkey:3, sku:"VS-HS-LE-LV", description:"Visconti Homo Sapiens LE Lava", list:990.00, sell:890.00, cost:445.00, manufacturer:"Visconti", collectible:"Limited" },
+  { pkey:4, sku:"PT-C823-AM", description:"Pilot Custom 823 Amber", list:350.00, sell:310.00, cost:155.00, manufacturer:"Pilot", collectible:"New" },
+  { pkey:5, sku:"PK-DUO-20S", description:"Parker Duofold Centennial 1920s", list:2500.00, sell:2200.00, cost:1100.00, manufacturer:"Parker", collectible:"Vintage" },
+  { pkey:6, sku:"LM-SF-CH", description:"Lamy Safari Charcoal", list:38.00, sell:32.00, cost:16.00, manufacturer:"Lamy", collectible:"New" },
+];
+
+const SAMPLE_CARDS = [
+  { nkey:1, type:"Visa", cardno:"4111111111111234", expdate:"09/26" },
+  { nkey:1, type:"Amex", cardno:"378282246310005", expdate:"12/25" },
+  { nkey:2, type:"MC", cardno:"5500005555555559", expdate:"03/27" },
+  { nkey:4, type:"Visa", cardno:"4012888888881881", expdate:"11/25" },
+];
+
+const SOURCES = ["","Website","Trade Show","Referral","Magazine Ad","Walk-in","Phone","Other"];
+const SALUTATIONS = ["","Mr.","Mrs.","Ms.","Dr.","Prof.","Rev."];
+const FLAGS = [
+  { key:"monthlyspecials", label:"Monthly",  color:"#4ade80" },
+  { key:"vintagespecials", label:"Vintage",  color:"#c084fc" },
+  { key:"sendCurrCat",     label:"Catalog",  color:"#60a5fa" },
+  { key:"nocatcheck",      label:"No Cat",   color:"#f87171" },
+  { key:"vcheck",          label:"Vin Sub",  color:"#a78bfa" },
+  { key:"pcheck",          label:"Prospect", color:"#fbbf24" },
+  { key:"lcheck",          label:"Ltd Sub",  color:"#34d399" },
+  { key:"vcomp",           label:"Vin Comp", color:"#fb923c" },
+];
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const fmt = {
+  currency: n => "$" + (+n||0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,","),
+  date: d => { if(!d) return "—"; const p=d.split("-"); return p.length===3?`${p[1]}/${p[2]}/${p[0]}`:d; },
+  mask: n => { if(!n) return "—"; const s=n.replace(/\s/g,""); return "•••• •••• •••• "+s.slice(-4); },
+};
+const custTotal = (nkey, purchases) => purchases.filter(p=>p.nkey===nkey).reduce((s,p)=>s+(p.pvalue*p.quantity),0);
+const custLast  = (nkey, purchases) => { const ps=[...purchases.filter(p=>p.nkey===nkey)].sort((a,b)=>b.dop.localeCompare(a.dop)); return ps[0]?.dop||null; };
+const typeColor = { New:"#60a5fa", Vintage:"#c084fc", Limited:"#34d399" };
+
+// ─── PRIMITIVES ───────────────────────────────────────────────────────────────
+function Badge({label,color,size="sm"}) {
+  return <span style={{display:"inline-block",padding:size==="sm"?"2px 7px":"3px 10px",borderRadius:4,fontSize:size==="sm"?10:11,fontWeight:700,letterSpacing:"0.06em",color:"#0a0a0a",background:color,textTransform:"uppercase"}}>{label}</span>;
+}
+function FlagBadges({customer,size}) {
+  return <span style={{display:"flex",flexWrap:"wrap",gap:4}}>{FLAGS.filter(f=>customer[f.key]).map(f=><Badge key={f.key} label={f.label} color={f.color} size={size}/>)}</span>;
+}
+function SectionLabel({children}) {
+  return <div style={{fontSize:10,fontWeight:700,letterSpacing:"0.12em",color:"#6b7280",textTransform:"uppercase",marginBottom:8,paddingBottom:4,borderBottom:"1px solid #1a1d24"}}>{children}</div>;
+}
+function Field({label,value}) {
+  if(!value) return null;
+  return <div style={{display:"flex",gap:8,marginBottom:5,fontSize:13}}><span style={{color:"#4b5563",width:62,flexShrink:0}}>{label}</span><span style={{color:"#c9b99a"}}>{value}</span></div>;
+}
+function Btn({children,onClick,variant="primary",small}) {
+  const s={primary:{background:"#c9a96e",color:"#0a0a0a",border:"none"},secondary:{background:"transparent",color:"#9ca3af",border:"1px solid #2a2d35"},danger:{background:"transparent",color:"#f87171",border:"1px solid #7f1d1d"}};
+  return <button onClick={onClick} style={{...s[variant],borderRadius:6,padding:small?"5px 12px":"8px 16px",fontSize:small?12:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",letterSpacing:"0.04em"}}>{children}</button>;
+}
+function FInput({label,value,onChange,type="text",placeholder,small}) {
+  return <div style={{display:"flex",flexDirection:"column",gap:5}}>
+    {label&&<label style={{fontSize:11,fontWeight:600,letterSpacing:"0.08em",color:"#6b7280",textTransform:"uppercase"}}>{label}</label>}
+    <input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={{background:"#0d0f13",border:"1px solid #2a2d35",borderRadius:6,padding:small?"6px 10px":"9px 12px",color:"#e8e2d5",fontSize:small?13:14,outline:"none",width:"100%"}}/>
+  </div>;
+}
+function FSelect({label,value,onChange,options}) {
+  return <div style={{display:"flex",flexDirection:"column",gap:5}}>
+    {label&&<label style={{fontSize:11,fontWeight:600,letterSpacing:"0.08em",color:"#6b7280",textTransform:"uppercase"}}>{label}</label>}
+    <select value={value} onChange={e=>onChange(e.target.value)} style={{background:"#0d0f13",border:"1px solid #2a2d35",borderRadius:6,padding:"9px 12px",color:"#e8e2d5",fontSize:14,outline:"none",width:"100%"}}>
+      {options.map(o=><option key={o} value={o}>{o||"—"}</option>)}
+    </select>
+  </div>;
+}
+function FCheck({label,checked,onChange}) {
+  return <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",userSelect:"none"}}>
+    <div onClick={()=>onChange(!checked)} style={{width:16,height:16,borderRadius:3,border:"1px solid #3a3d45",background:checked?"#c9a96e":"#0d0f13",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,cursor:"pointer"}}>
+      {checked&&<span style={{color:"#0a0a0a",fontSize:11,lineHeight:1,fontWeight:900}}>✓</span>}
+    </div>
+    <span style={{fontSize:13,color:"#9ca3af"}}>{label}</span>
+  </label>;
+}
+function Modal({title,onClose,children,wide}) {
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{background:"#131519",border:"1px solid #2a2d35",borderRadius:12,width:"100%",maxWidth:wide?920:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 25px 80px rgba(0,0,0,0.6)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"20px 24px 16px",borderBottom:"1px solid #1e2128"}}>
+        <span style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:"#e8e2d5",fontWeight:700}}>{title}</span>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"#6b7280",cursor:"pointer",fontSize:24,lineHeight:1}}>×</button>
+      </div>
+      <div style={{padding:24}}>{children}</div>
+    </div>
+  </div>;
+}
+
+// ─── CUSTOMER CARD ────────────────────────────────────────────────────────────
+function CustomerCard({customer,purchases,onClick}) {
+  const total=custTotal(customer.nkey,purchases);
+  const last=custLast(customer.nkey,purchases);
+  const count=purchases.filter(p=>p.nkey===customer.nkey).length;
+  const [hov,setHov]=useState(false);
+  return <div onClick={onClick} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+    style={{background:"#131519",border:`1px solid ${hov?"#c9a96e44":"#1e2128"}`,borderRadius:10,padding:"18px 20px",cursor:"pointer",transform:hov?"translateY(-1px)":"",transition:"border-color .15s,transform .15s",display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+      <div>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:17,color:"#e8e2d5",fontWeight:700}}>{customer.sal} {customer.fname} {customer.lname}</div>
+        {customer.company&&<div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{customer.company}</div>}
+      </div>
+      <div style={{fontSize:15,fontWeight:700,color:"#c9a96e",whiteSpace:"nowrap"}}>{fmt.currency(total)}</div>
+    </div>
+    <div style={{fontSize:12,color:"#6b7280"}}>{customer.city}{customer.state?`, ${customer.state}`:""} · {customer.country}</div>
+    <FlagBadges customer={customer} size="sm"/>
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#4b5563",borderTop:"1px solid #1a1d24",paddingTop:10}}>
+      <span>{count} purchase{count!==1?"s":""}</span>
+      <span>Last: {fmt.date(last)}</span>
+    </div>
+  </div>;
+}
+
+// ─── CUSTOMER FORM ────────────────────────────────────────────────────────────
+function CustomerForm({initial,onSave,onCancel}) {
+  const blank={sal:"",fname:"",lname:"",company:"",body:"",zip:"",city:"",state:"",country:"USA",phoffice:"",phhome:"",phfax:"",email:"",source:"",comments:"",date_added:new Date().toISOString().slice(0,10),monthlyspecials:false,vintagespecials:false,sendCurrCat:false,nocatcheck:false,vcheck:false,pcheck:false,lcheck:false,vcomp:false,vexp:"",lists:""};
+  const [f,setF]=useState({...blank,...(initial||{})});
+  const s=k=>v=>setF(x=>({...x,[k]:v}));
+  return <div style={{display:"flex",flexDirection:"column",gap:18}}>
+    <div style={{display:"grid",gridTemplateColumns:"100px 1fr 1fr",gap:12}}>
+      <FSelect label="Sal." value={f.sal} onChange={s("sal")} options={SALUTATIONS}/>
+      <FInput label="First Name" value={f.fname} onChange={s("fname")}/>
+      <FInput label="Last Name" value={f.lname} onChange={s("lname")}/>
+    </div>
+    <FInput label="Company" value={f.company} onChange={s("company")}/>
+    <FInput label="Address" value={f.body} onChange={s("body")}/>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 90px 80px 120px",gap:12}}>
+      <FInput label="City" value={f.city} onChange={s("city")}/>
+      <FInput label="State" value={f.state} onChange={s("state")}/>
+      <FInput label="ZIP" value={f.zip} onChange={s("zip")}/>
+      <FInput label="Country" value={f.country} onChange={s("country")}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+      <FInput label="Office" value={f.phoffice} onChange={s("phoffice")}/>
+      <FInput label="Home" value={f.phhome} onChange={s("phhome")}/>
+      <FInput label="Fax" value={f.phfax} onChange={s("phfax")}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+      <FInput label="Email" value={f.email} onChange={s("email")}/>
+      <FSelect label="Source" value={f.source} onChange={s("source")} options={SOURCES}/>
+    </div>
+    <FInput label="Comments" value={f.comments} onChange={s("comments")}/>
+    <div>
+      <div style={{fontSize:11,fontWeight:600,letterSpacing:"0.08em",color:"#6b7280",textTransform:"uppercase",marginBottom:12}}>Flags</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{FLAGS.map(fl=><FCheck key={fl.key} label={fl.label} checked={!!f[fl.key]} onChange={s(fl.key)}/>)}</div>
+    </div>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid #1e2128"}}>
+      <Btn variant="secondary" onClick={onCancel}>Cancel</Btn>
+      <Btn onClick={()=>onSave(f)}>Save Customer</Btn>
+    </div>
+  </div>;
+}
+
+// ─── PURCHASE FORM ────────────────────────────────────────────────────────────
+function PurchaseForm({nkey,items,onSave,onCancel}) {
+  const [f,setF]=useState({nkey,item:"",dop:new Date().toISOString().slice(0,10),quantity:1,pvalue:"",shipdate:"",invoicenum:"",collectible:"New"});
+  const [showItems,setShowItems]=useState(false);
+  const s=k=>v=>setF(x=>({...x,[k]:v}));
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{display:"flex",gap:10}}>
+      <div style={{flex:1}}><FInput label="Item Description" value={f.item} onChange={s("item")} placeholder="Type or pick from inventory…"/></div>
+      <div style={{paddingTop:22}}><Btn variant="secondary" small onClick={()=>setShowItems(v=>!v)}>Browse</Btn></div>
+    </div>
+    {showItems&&<div style={{background:"#0d0f13",border:"1px solid #2a2d35",borderRadius:8,maxHeight:180,overflowY:"auto"}}>
+      {items.map(i=><div key={i.pkey} onClick={()=>{s("item")(i.description);s("pvalue")(i.sell);s("collectible")(i.collectible);setShowItems(false);}} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #1e2128",fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background="#1a1d24"} onMouseLeave={e=>e.currentTarget.style.background=""}>
+        <span style={{color:"#c9a96e",marginRight:10}}>{i.sku}</span><span style={{color:"#e8e2d5"}}>{i.description}</span><span style={{float:"right",color:"#6b7280"}}>{fmt.currency(i.sell)}</span>
+      </div>)}
+    </div>}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 80px 120px",gap:12}}>
+      <FInput label="Date of Purchase" value={f.dop} onChange={s("dop")} type="date"/>
+      <FInput label="Qty" value={f.quantity} onChange={v=>s("quantity")(+v)} type="number"/>
+      <FInput label="Unit Price" value={f.pvalue} onChange={s("pvalue")} placeholder="0.00"/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+      <FInput label="Ship Date" value={f.shipdate} onChange={s("shipdate")} type="date"/>
+      <FInput label="Invoice #" value={f.invoicenum} onChange={s("invoicenum")}/>
+      <FSelect label="Type" value={f.collectible} onChange={s("collectible")} options={["New","Vintage","Limited"]}/>
+    </div>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:10,paddingTop:8,borderTop:"1px solid #1e2128"}}>
+      <Btn variant="secondary" onClick={onCancel}>Cancel</Btn>
+      <Btn onClick={()=>onSave(f)}>Add Purchase</Btn>
+    </div>
+  </div>;
+}
+
+// ─── CUSTOMER DETAIL ──────────────────────────────────────────────────────────
+function CustomerDetail({customer,purchases,cards,items,onEdit,onDelete,onAddPurchase,onClose}) {
+  const [addingP,setAddingP]=useState(false);
+  const custPs=[...purchases.filter(p=>p.nkey===customer.nkey)].sort((a,b)=>b.dop.localeCompare(a.dop));
+  const custCards=cards.filter(c=>c.nkey===customer.nkey);
+  const total=custPs.reduce((s,p)=>s+p.pvalue*p.quantity,0);
+  return <Modal title={`${customer.sal} ${customer.fname} ${customer.lname}`} onClose={onClose} wide>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}}>
+      <div style={{display:"flex",flexDirection:"column",gap:18}}>
+        <section>
+          <SectionLabel>Contact</SectionLabel>
+          <Field label="Company" value={customer.company}/>
+          <Field label="Address" value={`${customer.body}, ${customer.city}${customer.state?", "+customer.state:""} ${customer.zip}`}/>
+          <Field label="Country" value={customer.country}/>
+          <Field label="Office" value={customer.phoffice}/>
+          <Field label="Home" value={customer.phhome}/>
+          <Field label="Email" value={customer.email}/>
+          <Field label="Source" value={customer.source}/>
+          <Field label="Added" value={fmt.date(customer.date_added)}/>
+          {customer.comments&&<Field label="Notes" value={customer.comments}/>}
+        </section>
+        <section>
+          <SectionLabel>Flags</SectionLabel>
+          <FlagBadges customer={customer} size="md"/>
+          {customer.vexp&&<div style={{marginTop:8,fontSize:12,color:"#6b7280"}}>Vintage Exp: {fmt.date(customer.vexp)}</div>}
+        </section>
+        {custCards.length>0&&<section>
+          <SectionLabel>Cards on File</SectionLabel>
+          {custCards.map((c,i)=><div key={i} style={{fontSize:13,color:"#9ca3af",marginBottom:4}}>
+            <span style={{color:"#c9a96e",marginRight:8}}>{c.type}</span>{fmt.mask(c.cardno)} · {c.expdate}
+          </div>)}
+        </section>}
+      </div>
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <SectionLabel>Purchases — <span style={{color:"#c9a96e"}}>{fmt.currency(total)} total</span></SectionLabel>
+          <Btn small onClick={()=>setAddingP(true)}>+ Add</Btn>
+        </div>
+        {addingP&&<div style={{marginBottom:16,background:"#0d0f13",borderRadius:8,padding:16,border:"1px solid #2a2d35"}}>
+          <PurchaseForm nkey={customer.nkey} items={items} onSave={p=>{onAddPurchase(p);setAddingP(false);}} onCancel={()=>setAddingP(false)}/>
+        </div>}
+        <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>
+          {custPs.length===0&&<div style={{color:"#4b5563",fontSize:13}}>No purchases yet.</div>}
+          {custPs.map(p=><div key={p.pkey} style={{background:"#0d0f13",borderRadius:8,padding:"12px 14px",border:"1px solid #1e2128"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div style={{fontSize:13,color:"#e8e2d5",flex:1,marginRight:12}}>{p.item}</div>
+              <div style={{fontSize:14,fontWeight:700,color:"#c9a96e",whiteSpace:"nowrap"}}>{fmt.currency(p.pvalue*p.quantity)}</div>
+            </div>
+            <div style={{display:"flex",gap:12,marginTop:6,fontSize:11,color:"#4b5563",alignItems:"center"}}>
+              <span>{fmt.date(p.dop)}</span><span>Qty: {p.quantity}</span><span>#{p.invoicenum}</span>
+              <Badge label={p.collectible} color={typeColor[p.collectible]||"#6b7280"} size="sm"/>
+            </div>
+          </div>)}
+        </div>
+      </div>
+    </div>
+    <div style={{display:"flex",justifyContent:"space-between",marginTop:24,paddingTop:16,borderTop:"1px solid #1e2128"}}>
+      <Btn variant="danger" onClick={onDelete}>Delete Customer</Btn>
+      <div style={{display:"flex",gap:10}}>
+        <Btn variant="secondary" onClick={onClose}>Close</Btn>
+        <Btn onClick={onEdit}>Edit</Btn>
+      </div>
+    </div>
+  </Modal>;
+}
+
+// ─── INVENTORY ────────────────────────────────────────────────────────────────
+function Inventory({items}) {
+  const [q,setQ]=useState("");
+  const filtered=items.filter(i=>`${i.sku} ${i.description} ${i.manufacturer}`.toLowerCase().includes(q.toLowerCase()));
+  return <div>
+    <div style={{marginBottom:20}}><FInput value={q} onChange={setQ} placeholder="Search by SKU, description, or manufacturer…"/></div>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+      <thead><tr style={{borderBottom:"1px solid #2a2d35"}}>
+        {["SKU","Description","Manufacturer","Type","List Price","Sell Price","Cost"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,fontWeight:700,letterSpacing:"0.08em",color:"#6b7280",textTransform:"uppercase"}}>{h}</th>)}
+      </tr></thead>
+      <tbody>{filtered.map(i=>{
+        const [hov,setHov]=useState(false);
+        return <tr key={i.pkey} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{borderBottom:"1px solid #1a1d24",background:hov?"#0d0f13":""}}>
+          <td style={{padding:"10px 12px",color:"#c9a96e",fontFamily:"monospace"}}>{i.sku}</td>
+          <td style={{padding:"10px 12px",color:"#e8e2d5"}}>{i.description}</td>
+          <td style={{padding:"10px 12px",color:"#6b7280"}}>{i.manufacturer}</td>
+          <td style={{padding:"10px 12px"}}><Badge label={i.collectible} color={typeColor[i.collectible]||"#6b7280"}/></td>
+          <td style={{padding:"10px 12px",color:"#6b7280"}}>{fmt.currency(i.list)}</td>
+          <td style={{padding:"10px 12px",color:"#c9a96e",fontWeight:700}}>{fmt.currency(i.sell)}</td>
+          <td style={{padding:"10px 12px",color:"#4b5563"}}>{fmt.currency(i.cost)}</td>
+        </tr>;
+      })}</tbody>
+    </table>
+  </div>;
+}
+
+// ─── REPORTS ──────────────────────────────────────────────────────────────────
+function Reports({customers,purchases}) {
+  const [report,setReport]=useState("highrollers");
+  const wt=customers.map(c=>({...c,total:custTotal(c.nkey,purchases),count:purchases.filter(p=>p.nkey===c.nkey).length,lastDate:custLast(c.nkey,purchases)}));
+  const reports={
+    highrollers:{label:"High Rollers",      data:[...wt].sort((a,b)=>b.total-a.total).slice(0,20)},
+    quarterly:  {label:"Quarterly Expired", data:wt.filter(c=>c.vexp&&new Date(c.vexp)<new Date())},
+    international:{label:"International",   data:wt.filter(c=>c.country!=="USA")},
+    monthly:    {label:"Monthly Specials",  data:wt.filter(c=>c.monthlyspecials)},
+    vintage:    {label:"Vintage Specials",  data:wt.filter(c=>c.vintagespecials)},
+    catalog:    {label:"Catalog",           data:wt.filter(c=>c.sendCurrCat)},
+  };
+  const cur=reports[report];
+
+  const exportCSV=rows=>{
+    const h=["Name","Company","City","State","Country","Email","Total Spent","Purchases","Last Purchase"];
+    const lines=[h.join(","),...rows.map(r=>[`"${r.sal} ${r.fname} ${r.lname}"`,`"${r.company||""}"`,`"${r.city}"`,`"${r.state}"`,`"${r.country}"`,`"${r.email||""}"`,r.total.toFixed(2),r.count,r.lastDate||""].join(","))];
+    const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/csv"}));a.download=`${report}.csv`;a.click();
+  };
+  const printLabels=rows=>{
+    const w=window.open("","_blank");
+    w.document.write(`<html><head><style>body{font-family:Arial,sans-serif;font-size:12pt}.label{width:2.5in;height:1in;margin:.1in;display:inline-block;vertical-align:top;border:1px solid #ccc;padding:6px;box-sizing:border-box}@media print{.label{border:none}}</style></head><body>${rows.map(c=>`<div class="label">${c.sal?c.sal+" ":""}${c.fname} ${c.lname}<br>${c.company?c.company+"<br>":""}${c.body}<br>${c.city}${c.state?", "+c.state:""} ${c.zip}<br>${c.country!=="USA"?c.country:""}</div>`).join("")}</body></html>`);
+    w.print();
+  };
+
+  return <div>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20}}>
+      {Object.entries(reports).map(([k,r])=><button key={k} onClick={()=>setReport(k)} style={{padding:"6px 14px",borderRadius:6,fontSize:12,fontWeight:600,cursor:"pointer",background:report===k?"#c9a96e":"transparent",color:report===k?"#0a0a0a":"#6b7280",border:report===k?"none":"1px solid #2a2d35",fontFamily:"inherit"}}>{r.label} ({r.data.length})</button>)}
+    </div>
+    <div style={{display:"flex",gap:10,marginBottom:16}}>
+      <Btn small variant="secondary" onClick={()=>exportCSV(cur.data)}>Export CSV</Btn>
+      <Btn small variant="secondary" onClick={()=>printLabels(cur.data)}>Print Labels</Btn>
+    </div>
+    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+      <thead><tr style={{borderBottom:"1px solid #2a2d35"}}>
+        {["Name","Company","Location","Email","Total Spent","Orders","Last Purchase"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,fontWeight:700,letterSpacing:"0.08em",color:"#6b7280",textTransform:"uppercase"}}>{h}</th>)}
+      </tr></thead>
+      <tbody>{cur.data.map(c=>{
+        const [hov,setHov]=useState(false);
+        return <tr key={c.nkey} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{borderBottom:"1px solid #1a1d24",background:hov?"#0d0f13":""}}>
+          <td style={{padding:"10px 12px",color:"#e8e2d5"}}>{c.sal} {c.fname} {c.lname}</td>
+          <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.company}</td>
+          <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.city}{c.state?`, ${c.state}`:""}, {c.country}</td>
+          <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.email}</td>
+          <td style={{padding:"10px 12px",color:"#c9a96e",fontWeight:700}}>{fmt.currency(c.total)}</td>
+          <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.count}</td>
+          <td style={{padding:"10px 12px",color:"#6b7280"}}>{fmt.date(c.lastDate)}</td>
+        </tr>;
+      })}</tbody>
+    </table>
+    {cur.data.length===0&&<div style={{textAlign:"center",padding:40,color:"#4b5563"}}>No records in this report.</div>}
+  </div>;
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+function App() {
+  const [customers,setCustomers]=useState(SAMPLE_CUSTOMERS);
+  const [purchases,setPurchases]=useState(SAMPLE_PURCHASES);
+  const [cards]=useState(SAMPLE_CARDS);
+  const [items]=useState(SAMPLE_ITEMS);
+  const [nav,setNav]=useState("customers");
+  const [search,setSearch]=useState("");
+  const [viewMode,setViewMode]=useState("cards");
+  const [selected,setSelected]=useState(null);
+  const [editing,setEditing]=useState(null);
+  const [adding,setAdding]=useState(false);
+  const searchRef=useRef();
+
+  useEffect(()=>{
+    const h=e=>{
+      if(["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
+      if(e.key==="n"||e.key==="N"){setAdding(true);}
+      if(e.key==="f"||e.key==="F"){setNav("customers");setTimeout(()=>searchRef.current?.focus(),50);}
+      if(e.key==="Escape"){setSelected(null);setEditing(null);setAdding(false);}
+    };
+    window.addEventListener("keydown",h);
+    return ()=>window.removeEventListener("keydown",h);
+  },[]);
+
+  const filtered=customers.filter(c=>{
+    const q=search.toLowerCase();
+    return !q||`${c.fname} ${c.lname} ${c.company} ${c.city} ${c.state} ${c.email} ${c.comments}`.toLowerCase().includes(q);
+  });
+
+  const saveCustomer=form=>{
+    if(editing){setCustomers(cs=>cs.map(c=>c.nkey===editing.nkey?{...form,nkey:editing.nkey}:c));}
+    else{const nkey=Math.max(0,...customers.map(c=>c.nkey))+1;setCustomers(cs=>[...cs,{...form,nkey}]);}
+    setEditing(null);setAdding(false);
+  };
+  const deleteCustomer=nkey=>{
+    if(window.confirm("Delete this customer permanently?")){setCustomers(cs=>cs.filter(c=>c.nkey!==nkey));setSelected(null);}
+  };
+  const addPurchase=p=>{
+    const pkey=Math.max(0,...purchases.map(x=>x.pkey))+1;
+    setPurchases(ps=>[...ps,{...p,pkey,pvalue:parseFloat(p.pvalue)||0}]);
+  };
+
+  const NAV=[{id:"customers",label:"Customers",icon:"👤"},{id:"purchases",label:"Purchases",icon:"🛍"},{id:"inventory",label:"Inventory",icon:"📦"},{id:"reports",label:"Reports",icon:"📊"}];
+
+  return <div style={{display:"flex",height:"100vh",background:"#0a0c0f",overflow:"hidden"}}>
+    {/* SIDEBAR */}
+    <aside style={{width:220,flexShrink:0,background:"#0d0f13",borderRight:"1px solid #1a1d24",display:"flex",flexDirection:"column",padding:"24px 0"}}>
+      <div style={{padding:"0 20px 24px",borderBottom:"1px solid #1a1d24"}}>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:22,fontWeight:900,color:"#c9a96e",letterSpacing:"-0.02em"}}>FPH Studio</div>
+        <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.15em",textTransform:"uppercase",marginTop:3}}>Pen Retailer CRM</div>
+      </div>
+      <nav style={{flex:1,padding:"16px 12px"}}>
+        {NAV.map(n=><button key={n.id} onClick={()=>setNav(n.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 12px",borderRadius:8,marginBottom:4,border:"none",cursor:"pointer",fontFamily:"inherit",background:nav===n.id?"#1a1d24":"transparent",color:nav===n.id?"#c9a96e":"#6b7280",fontSize:14,fontWeight:nav===n.id?600:400}}>
+          <span style={{fontSize:16}}>{n.icon}</span>{n.label}
+        </button>)}
+      </nav>
+      <div style={{padding:"16px 20px",borderTop:"1px solid #1a1d24",fontSize:10,color:"#2a2d35",lineHeight:1.8}}>
+        <div>N — New customer</div><div>F — Focus search</div><div>Esc — Close panel</div>
+      </div>
+    </aside>
+
+    {/* MAIN */}
+    <main style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
+      <header style={{padding:"20px 28px 0",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:700,color:"#e8e2d5"}}>{NAV.find(n=>n.id===nav)?.label}</h1>
+          {nav==="customers"&&<div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <div style={{display:"flex",gap:4,background:"#131519",borderRadius:8,padding:4,border:"1px solid #1e2128"}}>
+              {["cards","table"].map(m=><button key={m} onClick={()=>setViewMode(m)} style={{padding:"4px 10px",borderRadius:5,fontSize:12,border:"none",cursor:"pointer",fontFamily:"inherit",background:viewMode===m?"#2a2d35":"transparent",color:viewMode===m?"#e8e2d5":"#6b7280"}}>{m==="cards"?"⊞ Cards":"≡ Table"}</button>)}
+            </div>
+            <Btn onClick={()=>setAdding(true)}>+ New Customer</Btn>
+          </div>}
+        </div>
+        {nav==="customers"&&<div style={{marginBottom:20}}>
+          <input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search customers by name, company, city, email…"
+            style={{width:"100%",background:"#131519",border:"1px solid #1e2128",borderRadius:8,padding:"10px 16px",color:"#e8e2d5",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+        </div>}
+      </header>
+
+      <div style={{flex:1,padding:"0 28px 28px"}}>
+        {/* CUSTOMERS */}
+        {nav==="customers"&&<>
+          <div style={{fontSize:12,color:"#4b5563",marginBottom:16}}>{filtered.length} customer{filtered.length!==1?"s":""}</div>
+          {viewMode==="cards"
+            ?<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+                {filtered.map(c=><CustomerCard key={c.nkey} customer={c} purchases={purchases} onClick={()=>setSelected(c)}/>)}
+              </div>
+            :<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr style={{borderBottom:"1px solid #2a2d35"}}>
+                {["Name","Company","City / State","Country","Email","Flags","Total",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,fontWeight:700,letterSpacing:"0.08em",color:"#6b7280",textTransform:"uppercase"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>{filtered.map(c=>{
+                const [hov,setHov]=useState(false);
+                return <tr key={c.nkey} onClick={()=>setSelected(c)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{borderBottom:"1px solid #1a1d24",cursor:"pointer",background:hov?"#0d0f13":""}}>
+                  <td style={{padding:"10px 12px"}}><span style={{fontFamily:"'Playfair Display',serif",color:"#e8e2d5"}}>{c.sal} {c.fname} {c.lname}</span></td>
+                  <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.company}</td>
+                  <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.city}{c.state?`, ${c.state}`:""}</td>
+                  <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.country}</td>
+                  <td style={{padding:"10px 12px",color:"#6b7280"}}>{c.email}</td>
+                  <td style={{padding:"10px 12px"}}><FlagBadges customer={c} size="sm"/></td>
+                  <td style={{padding:"10px 12px",color:"#c9a96e",fontWeight:700}}>{fmt.currency(custTotal(c.nkey,purchases))}</td>
+                  <td style={{padding:"10px 12px"}}><button onClick={e=>{e.stopPropagation();setEditing(c);}} style={{background:"none",border:"1px solid #2a2d35",color:"#6b7280",borderRadius:4,padding:"3px 8px",cursor:"pointer",fontSize:11,fontFamily:"inherit"}}>Edit</button></td>
+                </tr>;
+              })}</tbody>
+            </table>
+          }
+        </>}
+
+        {/* PURCHASES */}
+        {nav==="purchases"&&<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <thead><tr style={{borderBottom:"1px solid #2a2d35"}}>
+            {["Invoice","Customer","Item","Date","Qty","Unit Price","Total","Type","Shipped"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontSize:10,fontWeight:700,letterSpacing:"0.08em",color:"#6b7280",textTransform:"uppercase"}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{[...purchases].sort((a,b)=>b.dop.localeCompare(a.dop)).map(p=>{
+            const c=customers.find(x=>x.nkey===p.nkey);
+            const [hov,setHov]=useState(false);
+            return <tr key={p.pkey} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{borderBottom:"1px solid #1a1d24",background:hov?"#0d0f13":""}}>
+              <td style={{padding:"10px 12px",color:"#c9a96e",fontFamily:"monospace",fontSize:12}}>{p.invoicenum}</td>
+              <td style={{padding:"10px 12px",color:"#e8e2d5"}}>{c?`${c.fname} ${c.lname}`:"?"}</td>
+              <td style={{padding:"10px 12px",color:"#9ca3af",maxWidth:220}}><span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.item}</span></td>
+              <td style={{padding:"10px 12px",color:"#6b7280"}}>{fmt.date(p.dop)}</td>
+              <td style={{padding:"10px 12px",color:"#6b7280"}}>{p.quantity}</td>
+              <td style={{padding:"10px 12px",color:"#6b7280"}}>{fmt.currency(p.pvalue)}</td>
+              <td style={{padding:"10px 12px",color:"#c9a96e",fontWeight:700}}>{fmt.currency(p.pvalue*p.quantity)}</td>
+              <td style={{padding:"10px 12px"}}><Badge label={p.collectible} color={typeColor[p.collectible]||"#6b7280"}/></td>
+              <td style={{padding:"10px 12px",color:"#6b7280"}}>{fmt.date(p.shipdate)}</td>
+            </tr>;
+          })}</tbody>
+        </table>}
+
+        {nav==="inventory"&&<Inventory items={items}/>}
+        {nav==="reports"&&<Reports customers={customers} purchases={purchases}/>}
+      </div>
+    </main>
+
+    {/* MODALS */}
+    {(adding||editing)&&<Modal title={editing?"Edit Customer":"New Customer"} onClose={()=>{setAdding(false);setEditing(null);}} wide>
+      <CustomerForm initial={editing} onSave={saveCustomer} onCancel={()=>{setAdding(false);setEditing(null);}}/>
+    </Modal>}
+
+    {selected&&!editing&&<CustomerDetail customer={selected} purchases={purchases} cards={cards} items={items}
+      onEdit={()=>{setEditing(selected);setSelected(null);}}
+      onDelete={()=>deleteCustomer(selected.nkey)}
+      onAddPurchase={addPurchase}
+      onClose={()=>setSelected(null)}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
