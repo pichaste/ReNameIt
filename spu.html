@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shopify Price Updater</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Fraunces:ital,wght@0,600;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #f5f2eb;
+  --bg2: #ece8df;
+  --bg3: #e2ddd3;
+  --ink: #1a1714;
+  --ink2: #4a4540;
+  --ink3: #7a756e;
+  --gold: #c8860a;
+  --gold-light: #f5e6c8;
+  --gold-pale: #faf4e8;
+  --green: #2d6a4f;
+  --green-light: #d8f3dc;
+  --amber: #b5560a;
+  --amber-light: #fde8d0;
+  --red: #9b1d1d;
+  --red-light: #fde8e8;
+  --border: #cfc9bf;
+  --border2: #b8b0a4;
+  --mono: 'IBM Plex Mono', monospace;
+  --serif: 'Fraunces', serif;
+  --shadow: 0 2px 8px rgba(26,23,20,0.08), 0 1px 2px rgba(26,23,20,0.06);
+  --shadow-lg: 0 8px 32px rgba(26,23,20,0.12), 0 2px 8px rgba(26,23,20,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--ink); font-family: var(--mono); min-height: 100vh; font-size: 13px; }
+
+/* ── HEADER ── */
+header {
+  background: var(--ink);
+  padding: 0 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; position: sticky; top: 0; z-index: 100;
+}
+.h-logo { display: flex; align-items: baseline; gap: 12px; }
+.h-logo-title { font-family: var(--serif); font-size: 22px; font-weight: 900; color: #f5f2eb; letter-spacing: -0.5px; }
+.h-logo-title em { font-style: italic; color: #c8a86e; }
+.h-logo-sub { font-size: 10px; color: #7a756e; letter-spacing: 2px; text-transform: uppercase; }
+.h-right { display: flex; align-items: center; gap: 16px; }
+.h-status { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #7a756e; letter-spacing: 1px; }
+.h-dot { width: 7px; height: 7px; border-radius: 50%; background: #4a4540; transition: all 0.4s; }
+.h-dot.active { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+.btn-mappings { font-family: var(--mono); font-size: 11px; padding: 6px 14px; border-radius: 4px; border: 1px solid #3a3530; background: transparent; color: #c8a86e; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; }
+.btn-mappings:hover { border-color: #c8a86e; background: rgba(200,168,110,0.08); }
+
+/* ── LAYOUT ── */
+main { max-width: 1200px; margin: 0 auto; padding: 40px 48px 80px; }
+
+/* ── STEP CONTAINER ── */
+.step-wrap { margin-bottom: 24px; border-radius: 8px; border: 1px solid var(--border); background: white; box-shadow: var(--shadow); overflow: hidden; transition: opacity 0.3s; }
+.step-wrap.locked { opacity: 0.5; pointer-events: none; }
+.step-head { display: flex; align-items: center; gap: 14px; padding: 18px 24px; background: var(--bg2); border-bottom: 1px solid var(--border); }
+.step-n { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--ink3); flex-shrink: 0; transition: all 0.3s; }
+.step-wrap.done .step-n { border-color: var(--green); color: var(--green); background: var(--green-light); }
+.step-wrap.active .step-n { border-color: var(--gold); color: var(--gold); background: var(--gold-pale); }
+.step-title { font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--ink); }
+.step-desc { font-size: 11px; color: var(--ink3); margin-top: 1px; }
+.step-badge { margin-left: auto; font-size: 10px; padding: 3px 10px; border-radius: 20px; background: var(--green-light); color: var(--green); border: 1px solid #a8d8b9; letter-spacing: 1px; opacity: 0; transition: opacity 0.3s; }
+.step-wrap.done .step-badge { opacity: 1; }
+.step-body { padding: 24px; }
+
+/* ── UPLOAD ── */
+.upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.drop-zone { border: 2px dashed var(--border2); border-radius: 8px; padding: 32px 24px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg); position: relative; }
+.drop-zone:hover, .drop-zone.over { border-color: var(--gold); background: var(--gold-pale); }
+.drop-zone.loaded { border-color: var(--green); border-style: solid; background: #f0faf3; }
+.dz-icon { font-size: 32px; margin-bottom: 12px; display: block; }
+.dz-label { font-family: var(--serif); font-size: 15px; font-weight: 700; color: var(--ink); }
+.dz-sub { font-size: 11px; color: var(--ink3); margin-top: 4px; }
+.dz-file { font-size: 11px; color: var(--green); margin-top: 10px; font-weight: 600; min-height: 16px; }
+.dz-count { font-size: 10px; color: var(--ink3); min-height: 14px; }
+input[type=file] { display: none; }
+
+/* ── MAPPING ── */
+.mapping-saved-banner { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--gold-pale); border: 1px solid #e8d4a0; border-radius: 6px; margin-bottom: 20px; font-size: 12px; color: var(--amber); }
+.mapping-saved-banner strong { color: var(--gold); }
+.mapping-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.map-field { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+.map-field-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink3); margin-bottom: 4px; }
+.map-field-shopify { font-family: var(--serif); font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
+.map-field-shopify span { font-size: 11px; font-family: var(--mono); font-style: normal; color: var(--ink3); font-weight: 400; }
+.map-arrow { font-size: 11px; color: var(--ink3); margin-bottom: 8px; }
+select.map-select { width: 100%; padding: 8px 10px; border: 1px solid var(--border2); border-radius: 4px; background: white; font-family: var(--mono); font-size: 12px; color: var(--ink); outline: none; cursor: pointer; transition: border-color 0.2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a756e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+select.map-select:focus { border-color: var(--gold); }
+.map-confidence { font-size: 10px; margin-top: 6px; padding: 3px 8px; border-radius: 10px; display: inline-block; }
+.conf-high { background: var(--green-light); color: var(--green); }
+.conf-med  { background: var(--amber-light); color: var(--amber); }
+.conf-low  { background: var(--red-light); color: var(--red); }
+.map-actions { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+
+/* ── DISCOUNT ── */
+.discount-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; display: flex; align-items: center; gap: 24px; }
+.dc-label { flex: 1; }
+.dc-title { font-family: var(--serif); font-size: 15px; font-weight: 700; }
+.dc-sub { font-size: 11px; color: var(--ink3); margin-top: 3px; }
+.dc-toggle { display: flex; border: 1px solid var(--border2); border-radius: 5px; overflow: hidden; }
+.dc-btn { padding: 8px 16px; font-family: var(--mono); font-size: 11px; background: white; color: var(--ink3); border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.dc-btn.on { background: var(--ink); color: #f5f2eb; }
+.dc-input-wrap { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border2); border-radius: 5px; padding: 6px 12px; background: white; transition: border-color 0.2s; }
+.dc-input-wrap:focus-within { border-color: var(--gold); }
+.dc-input-wrap.off { opacity: 0.35; pointer-events: none; }
+.dc-input { background: transparent; border: none; outline: none; font-family: var(--mono); font-size: 22px; font-weight: 600; color: var(--gold); width: 56px; text-align: right; }
+.dc-pct { font-size: 18px; color: var(--ink3); }
+
+/* ── PREVIEW ── */
+.preview-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 0; }
+.ptab { padding: 10px 20px; font-size: 11px; letter-spacing: 1px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--ink3); transition: all 0.2s; display: flex; align-items: center; gap: 8px; background: none; border-top: none; border-left: none; border-right: none; font-family: var(--mono); }
+.ptab.active { color: var(--ink); border-bottom-color: var(--gold); }
+.ptab .badge { font-size: 10px; padding: 1px 7px; border-radius: 10px; font-weight: 600; }
+.badge-green  { background: var(--green-light);  color: var(--green); }
+.badge-amber  { background: var(--amber-light);  color: var(--amber); }
+.badge-red    { background: var(--red-light);    color: var(--red); }
+.badge-gray   { background: var(--bg3);          color: var(--ink3); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+.tbl-wrap { overflow-x: auto; max-height: 400px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+thead { position: sticky; top: 0; z-index: 2; }
+th { padding: 9px 12px; text-align: left; background: var(--bg2); color: var(--ink3); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; font-weight: 500; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--bg3); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg); }
+.c-sku  { font-weight: 600; color: var(--ink); font-size: 11px; }
+.c-name { color: var(--ink2); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-old  { color: var(--ink3); text-decoration: line-through; font-size: 10px; }
+.c-new  { color: var(--green); font-weight: 600; }
+.c-same { color: var(--ink3); }
+.tier-tag { font-size: 9px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 600; letter-spacing: 0.5px; }
+.t1 { background: var(--green-light);  color: var(--green); }
+.t2 { background: var(--amber-light);  color: var(--amber); }
+.t3 { background: var(--red-light);    color: var(--red); }
+
+/* Editable price inputs in preview */
+.price-input-wrap { display: flex; flex-direction: column; gap: 3px; }
+.price-edit { width: 90px; padding: 4px 8px; border: 1px solid var(--border2); border-radius: 4px; font-family: var(--mono); font-size: 12px; color: var(--ink); background: white; outline: none; transition: border-color 0.2s; }
+.price-edit:focus { border-color: var(--gold); }
+.price-edit.suggested { border-color: var(--amber); background: var(--amber-light); }
+.price-edit-label { font-size: 9px; color: var(--ink3); letter-spacing: 1px; }
+.accept-btn { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--green); background: var(--green-light); color: var(--green); cursor: pointer; font-family: var(--mono); transition: all 0.2s; white-space: nowrap; }
+.accept-btn:hover { background: var(--green); color: white; }
+.accept-btn.accepted { background: var(--green); color: white; }
+.skip-btn { font-size: 10px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border2); background: white; color: var(--ink3); cursor: pointer; font-family: var(--mono); transition: all 0.2s; }
+.skip-btn:hover { border-color: var(--red); color: var(--red); }
+.row-actions { display: flex; gap: 6px; align-items: center; }
+.match-note { font-size: 10px; color: var(--amber); margin-top: 2px; }
+
+/* ── EXPORT ── */
+.export-row { display: flex; align-items: center; gap: 16px; }
+.btn-primary { font-family: var(--serif); font-size: 15px; font-weight: 700; padding: 12px 32px; border-radius: 6px; border: none; cursor: pointer; background: var(--ink); color: var(--bg); transition: all 0.2s; letter-spacing: -0.3px; }
+.btn-primary:hover:not(:disabled) { background: #2d2926; transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+.btn-primary:disabled { background: var(--border); color: var(--ink3); cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-secondary { font-family: var(--mono); font-size: 12px; padding: 10px 20px; border-radius: 6px; border: 1px solid var(--border2); cursor: pointer; background: white; color: var(--ink2); transition: all 0.2s; }
+.btn-secondary:hover { border-color: var(--ink); color: var(--ink); }
+.export-note { font-size: 11px; color: var(--ink3); }
+
+/* ── MAPPING MANAGER MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(26,23,20,0.6); z-index: 200; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 10px; padding: 32px; width: 680px; max-width: 90vw; max-height: 80vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+.modal-title { font-family: var(--serif); font-size: 20px; font-weight: 900; margin-bottom: 4px; }
+.modal-sub { font-size: 11px; color: var(--ink3); margin-bottom: 24px; }
+.saved-map-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 16px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; background: var(--bg); }
+.smi-name { font-weight: 600; font-size: 12px; color: var(--ink); margin-bottom: 4px; }
+.smi-detail { font-size: 10px; color: var(--ink3); line-height: 1.6; }
+.smi-del { font-size: 11px; padding: 5px 12px; border-radius: 4px; border: 1px solid var(--border2); background: white; color: var(--red); cursor: pointer; font-family: var(--mono); flex-shrink: 0; margin-left: 12px; transition: all 0.2s; }
+.smi-del:hover { background: var(--red-light); border-color: var(--red); }
+.modal-close { margin-top: 20px; }
+.no-saved { text-align: center; padding: 40px; color: var(--ink3); font-size: 12px; }
+
+/* ── MISC ── */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.pending-note { font-size: 11px; color: var(--amber); background: var(--amber-light); border: 1px solid #f0c090; border-radius: 5px; padding: 8px 14px; margin-bottom: 16px; display: flex; gap: 8px; align-items: center; }
+.empty-state { text-align: center; padding: 48px; color: var(--ink3); }
+.empty-state .big { font-size: 40px; margin-bottom: 10px; }
+.empty-state p { font-size: 12px; }
+.fade-in { animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-logo">
+    <span class="h-logo-title">Shopify <em>Price</em> Updater</span>
+    <span class="h-logo-sub">v2.0</span>
+  </div>
+  <div class="h-right">
+    <div class="h-status"><span class="h-dot" id="hDot"></span><span id="hStatus">IDLE</span></div>
+    <button class="btn-mappings" onclick="openMappingManager()">⚙ Saved Mappings</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- STEP 1: Upload -->
+  <div class="step-wrap active" id="sw1">
+    <div class="step-head">
+      <div class="step-n">1</div>
+      <div><div class="step-title">Upload Files</div><div class="step-desc">Shopify export CSV + vendor pricing file (XLSX or CSV)</div></div>
+      <div class="step-badge">✓ LOADED</div>
+    </div>
+    <div class="step-body">
+      <div class="upload-grid">
+        <div class="drop-zone" id="dzShopify" onclick="document.getElementById('fShopify').click()">
+          <input type="file" id="fShopify" accept=".csv" onchange="loadShopify(this)">
+          <span class="dz-icon">🛍</span>
+          <div class="dz-label">Shopify Export</div>
+          <div class="dz-sub">CSV — the file to be updated</div>
+          <div class="dz-file" id="sfName"></div>
+          <div class="dz-count" id="sfCount">No file selected</div>
+        </div>
+        <div class="drop-zone" id="dzVendor" onclick="document.getElementById('fVendor').click()">
+          <input type="file" id="fVendor" accept=".csv,.xlsx,.xls" onchange="loadVendor(this)">
+          <span class="dz-icon">📦</span>
+          <div class="dz-label">Vendor Pricing File</div>
+          <div class="dz-sub">XLSX or CSV — source of new prices</div>
+          <div class="dz-file" id="vfName"></div>
+          <div class="dz-count" id="vfCount">No file selected</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Column Mapping -->
+  <div class="step-wrap locked" id="sw2">
+    <div class="step-head">
+      <div class="step-n">2</div>
+      <div><div class="step-title">Column Mapping</div><div class="step-desc">Map vendor columns to Shopify price fields</div></div>
+      <div class="step-badge">✓ CONFIRMED</div>
+    </div>
+    <div class="step-body" id="mappingBody">
+      <div class="empty-state"><div class="big">🗂</div><p>Upload both files to configure mapping</p></div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Discount -->
+  <div class="step-wrap locked" id="sw3">
+    <div class="step-head">
+      <div class="step-n">3</div>
+      <div><div class="step-title">Discount Settings</div><div class="step-desc">How Variant Price is derived from the Compare At source column</div></div>
+      <div class="step-badge">✓ SET</div>
+    </div>
+    <div class="step-body">
+      <div class="discount-card">
+        <div class="dc-label">
+          <div class="dc-title">Variant Price Discount</div>
+          <div class="dc-sub">Variant Price = Compare At Source × (1 − discount%) &nbsp;·&nbsp; "Keep existing" preserves each SKU's current individual rate</div>
+        </div>
+        <div class="dc-toggle">
+          <button class="dc-btn" id="dcKeep" onclick="setDcMode('keep')">Keep existing %</button>
+          <button class="dc-btn on" id="dcOver" onclick="setDcMode('override')">Override</button>
+        </div>
+        <div class="dc-input-wrap" id="dcWrap">
+          <input type="number" class="dc-input" id="dcVal" value="20" min="0" max="99" step="0.5" oninput="onDcChange()">
+          <span class="dc-pct">%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4: Preview -->
+  <div class="step-wrap locked" id="sw4">
+    <div class="step-head">
+      <div class="step-n">4</div>
+      <div><div class="step-title">Preview & Review</div><div class="step-desc">Confirm auto-updates · review flagged rows · enter manual prices</div></div>
+      <div class="step-badge">✓ REVIEWED</div>
+    </div>
+    <div class="step-body" id="previewBody">
+      <div class="empty-state"><div class="big">🔍</div><p>Complete mapping to see preview</p></div>
+    </div>
+  </div>
+
+  <!-- STEP 5: Export -->
+  <div class="step-wrap locked" id="sw5">
+    <div class="step-head">
+      <div class="step-n">5</div>
+      <div><div class="step-title">Export</div><div class="step-desc">Download your updated Shopify CSV</div></div>
+      <div class="step-badge">✓ EXPORTED</div>
+    </div>
+    <div class="step-body">
+      <div class="export-row">
+        <button class="btn-primary" id="btnExport" disabled onclick="doExport()">⬇ Download Updated CSV</button>
+        <span class="export-note" id="exportNote">Complete all steps to export</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Mapping Manager Modal -->
+<div class="modal-overlay" id="mmOverlay" onclick="if(event.target===this)closeMappingManager()">
+  <div class="modal">
+    <div class="modal-title">Saved Mappings</div>
+    <div class="modal-sub">Mappings are saved per vendor file name + column fingerprint. They load automatically on next use.</div>
+    <div id="mmList"></div>
+    <div class="modal-close"><button class="btn-secondary" onclick="closeMappingManager()">Close</button></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════════
+const S = {
+  shopifyHeaders: [], shopifyRows: [],
+  vendorHeaders:  [], vendorRows:  [], vendorFileName: '',
+  mapping: { sku: '', compareAt: '', cost: '', name: '' },
+  mappingConfirmed: false,
+  dcMode: 'override', dcVal: 20,
+  preview: [],   // array of previewRow objects
+  pendingFlagged: 0,
+};
+
+// ══════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════════════════
+const isBlank = v => { if (v===null||v===undefined) return true; const s=String(v).trim().toLowerCase(); return s===''||s==='nan'||s==='null'||s==='undefined'; };
+const normSku  = s => String(s||'').trim().replace(/^'+/,'');
+const normNum  = v => { const f=parseFloat(String(v||'').replace(/[^0-9.-]/g,'')); return isNaN(f)?null:f; };
+const fmtPrice = v => isBlank(v)?'—':'$'+parseFloat(v).toFixed(2);
+
+// Fuzzy name match — normalize then check if one contains the other or similarity > 80%
+function fuzzyName(a, b) {
+  const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+  const na = norm(a), nb = norm(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  // Overlap: check if 70% of words from shorter string appear in longer
+  const wa = na.split(' '), wb = nb.split(' ');
+  const [shorter, longer] = wa.length <= wb.length ? [wa, nb] : [wb, na];
+  const matches = shorter.filter(w => w.length > 2 && longer.includes(w));
+  return matches.length / shorter.length >= 0.7;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CSV PARSER
+// ══════════════════════════════════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  const headers = splitLine(lines[0]);
+  const rows = [];
+  for (let i=1;i<lines.length;i++) {
+    if (!lines[i].trim()) continue;
+    const vals = splitLine(lines[i]);
+    const row  = {};
+    headers.forEach((h,j) => { row[h] = vals[j]!==undefined ? vals[j] : ''; });
+    rows.push(row);
+  }
+  return { headers, rows };
+}
+function splitLine(line) {
+  const out=[]; let cur='', inQ=false;
+  for (let i=0;i<line.length;i++) {
+    const c=line[i];
+    if (c==='"') { if (inQ&&line[i+1]==='"'){cur+='"';i++;} else inQ=!inQ; }
+    else if (c===','&&!inQ){out.push(cur);cur='';}
+    else cur+=c;
+  }
+  out.push(cur); return out;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// FILE LOADERS
+// ══════════════════════════════════════════════════════════════════════════
+function loadShopify(input) {
+  const file = input.files[0]; if (!file) return;
+  document.getElementById('sfName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const p = parseCSV(e.target.result);
+    S.shopifyHeaders = p.headers; S.shopifyRows = p.rows;
+    document.getElementById('sfCount').textContent = p.rows.length + ' rows loaded';
+    document.getElementById('dzShopify').classList.add('loaded');
+    tryInitMapping();
+  };
+  reader.readAsText(file);
+}
+
+function loadVendor(input) {
+  const file = input.files[0]; if (!file) return;
+  S.vendorFileName = file.name;
+  document.getElementById('vfName').textContent = file.name;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  reader.onload = e => {
+    let headers, rows;
+    if (ext==='csv') {
+      const p = parseCSV(e.target.result);
+      headers = p.headers; rows = p.rows;
+    } else {
+      const wb  = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+      // Find header row
+      let hRow = 0;
+      for (let i=0;i<Math.min(raw.length,10);i++) {
+        if (raw[i].filter(c=>String(c).trim().length>0).length >= 3) { hRow=i; break; }
+      }
+      headers = raw[hRow].map(h=>String(h).trim()).filter(h=>h);
+      rows = [];
+      for (let i=hRow+1;i<raw.length;i++) {
+        const r=raw[i]; if (r.every(c=>String(c).trim()===''||c===null)) continue;
+        const row={}; headers.forEach((h,j)=>{ row[h]=r[j]!==undefined?String(r[j]):''; }); rows.push(row);
+      }
+    }
+    S.vendorHeaders = headers; S.vendorRows = rows;
+    document.getElementById('vfCount').textContent = rows.length + ' rows loaded';
+    document.getElementById('dzVendor').classList.add('loaded');
+    tryInitMapping();
+  };
+  ext==='csv' ? reader.readAsText(file) : reader.readAsArrayBuffer(file);
+}
+
+// Drag & drop
+['dzShopify','dzVendor'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('dragover',  e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave', ()=>el.classList.remove('over'));
+  el.addEventListener('drop', e=>{
+    e.preventDefault(); el.classList.remove('over');
+    const file=e.dataTransfer.files[0]; if (!file) return;
+    const isS = id==='dzShopify';
+    const inp = document.getElementById(isS?'fShopify':'fVendor');
+    const dt  = new DataTransfer(); dt.items.add(file); inp.files=dt.files;
+    isS ? loadShopify(inp) : loadVendor(inp);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+// MAPPING
+// ══════════════════════════════════════════════════════════════════════════
+const MAPPING_KEY = () => 'spu_map_' + btoa(S.vendorFileName + '|' + S.vendorHeaders.join(','));
+
+function autoSuggest(headers) {
+  const h = headers.map(x=>x.toLowerCase());
+  const score = (col, keywords) => keywords.reduce((best,kw)=>{
+    const c=col.toLowerCase();
+    if (c===kw) return Math.max(best,100);
+    if (c.includes(kw)) return Math.max(best,70);
+    return best;
+  }, 0);
+
+  const best = (keywords) => {
+    let topH='', topS=0;
+    headers.forEach(hdr => { const s=score(hdr,keywords); if(s>topS){topS=s;topH=hdr;} });
+    return { col: topH, confidence: topS>=100?'high':topS>=70?'med':'low' };
+  };
+
+  return {
+    sku:       best(['sku','skus','item','part','item #','item number','product code','code']),
+    compareAt: best(['msrp','list price','list','map','retail','suggested retail','srp','price']),
+    cost:      best(['cost','wholesale','dealer','your price','net','dealer cost','retail price','trade']),
+    name:      best(['description','product name','name','title','product','item description','product description']),
+  };
+}
+
+function tryInitMapping() {
+  if (!S.shopifyRows.length || !S.vendorRows.length) return;
+  unlock('sw2');
+  setActive('sw2');
+
+  // Check saved mapping
+  const saved = loadSavedMapping();
+  if (saved) {
+    S.mapping = saved;
+    renderMappingUI(true);
+  } else {
+    const suggested = autoSuggest(S.vendorHeaders);
+    S.mapping = { sku: suggested.sku.col, compareAt: suggested.compareAt.col, cost: suggested.cost.col, name: suggested.name.col };
+    renderMappingUI(false, suggested);
+  }
+}
+
+function renderMappingUI(fromSaved, suggested) {
+  const body = document.getElementById('mappingBody');
+  const opts = S.vendorHeaders.map(h=>`<option value="${esc(h)}">${esc(h)}</option>`).join('');
+  const selFor = (field, val) => `<select class="map-select" id="ms_${field}" onchange="S.mapping['${field}']=this.value">${
+    ['(not mapped)', ...S.vendorHeaders].map(h=>`<option value="${esc(h)}"${h===val?' selected':''}>${esc(h)}</option>`).join('')
+  }</select>`;
+  const confBadge = (field) => {
+    if (fromSaved) return `<span class="map-confidence conf-high">✓ saved mapping</span>`;
+    const c = suggested[field]?.confidence || 'low';
+    const labels = {high:'● high confidence', med:'◑ medium confidence', low:'○ low confidence'};
+    return `<span class="map-confidence conf-${c}">${labels[c]}</span>`;
+  };
+
+  let html = fromSaved ? `<div class="mapping-saved-banner">⚡ <strong>Saved mapping loaded</strong> for "${S.vendorFileName}" — confirm or adjust below before proceeding.</div>` : '';
+
+  html += `<div class="mapping-grid">
+    <div class="map-field">
+      <div class="map-field-label">Vendor SKU Column</div>
+      <div class="map-field-shopify">SKU Match <span>→ Variant SKU in Shopify</span></div>
+      <div class="map-arrow">↕ maps to</div>
+      ${selFor('sku', S.mapping.sku)}
+      ${confBadge('sku')}
+    </div>
+    <div class="map-field">
+      <div class="map-field-label">Compare At Price Source</div>
+      <div class="map-field-shopify">Variant Compare At Price <span>→ direct copy</span></div>
+      <div class="map-arrow">↕ maps to</div>
+      ${selFor('compareAt', S.mapping.compareAt)}
+      ${confBadge('compareAt')}
+    </div>
+    <div class="map-field">
+      <div class="map-field-label">Cost / Wholesale Source</div>
+      <div class="map-field-shopify">Cost per item <span>→ direct copy</span></div>
+      <div class="map-arrow">↕ maps to</div>
+      ${selFor('cost', S.mapping.cost)}
+      ${confBadge('cost')}
+    </div>
+    <div class="map-field">
+      <div class="map-field-label">Product Name Column</div>
+      <div class="map-field-shopify">Name Match <span>→ fallback when SKU missing</span></div>
+      <div class="map-arrow">↕ maps to</div>
+      ${selFor('name', S.mapping.name)}
+      ${confBadge('name')}
+    </div>
+  </div>
+  <div class="map-actions">
+    <button class="btn-primary" onclick="confirmMapping()">Confirm Mapping →</button>
+    <span style="font-size:11px;color:var(--ink3)">Variant Price is calculated as: Compare At × (1 − discount%) — set in Step 3</span>
+  </div>`;
+
+  body.innerHTML = html;
+  // Re-sync selects to S.mapping on change
+  ['sku','compareAt','cost','name'].forEach(f => {
+    document.getElementById('ms_'+f).addEventListener('change', e => { S.mapping[f] = e.target.value; });
+  });
+}
+
+function confirmMapping() {
+  if (!S.mapping.sku) { alert('Please select a SKU column.'); return; }
+  if (!S.mapping.compareAt) { alert('Please select a Compare At Price source column.'); return; }
+  saveMappingToStorage();
+  S.mappingConfirmed = true;
+  markDone('sw2');
+  unlock('sw3'); setActive('sw3');
+  unlock('sw4'); setActive('sw4');
+  unlock('sw5'); setActive('sw5');
+  buildPreview();
+  updateHeader();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// DISCOUNT
+// ══════════════════════════════════════════════════════════════════════════
+function setDcMode(mode) {
+  S.dcMode = mode;
+  document.getElementById('dcKeep').classList.toggle('on', mode==='keep');
+  document.getElementById('dcOver').classList.toggle('on', mode==='override');
+  document.getElementById('dcWrap').classList.toggle('off', mode==='keep');
+  if (S.mappingConfirmed) buildPreview();
+}
+function onDcChange() {
+  S.dcVal = parseFloat(document.getElementById('dcVal').value)||0;
+  if (S.mappingConfirmed) buildPreview();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CORE MATCHING & PREVIEW BUILD
+// ══════════════════════════════════════════════════════════════════════════
+function buildPreview() {
+  const { sku: skuCol, compareAt: caCol, cost: costCol, name: nameCol } = S.mapping;
+
+  // Build vendor lookup by SKU
+  const vendorBySku  = {};
+  const vendorByName = [];
+  S.vendorRows.forEach(row => {
+    const sku  = normSku(row[skuCol]);
+    const ca   = normNum(row[caCol]);
+    const cost = normNum(row[costCol]);
+    const name = String(row[nameCol]||'').trim();
+    if (sku) {
+      if (!vendorBySku[sku]) vendorBySku[sku] = [];
+      vendorBySku[sku].push({ ca, cost, name, raw: row });
+    }
+    if (name) vendorByName.push({ sku, ca, cost, name, raw: row });
+  });
+
+  // Shopify column names
+  const S_SKU  = 'Variant SKU';
+  const S_VP   = 'Variant Price';
+  const S_VCP  = 'Variant Compare At Price';
+  const S_COST = 'Cost per item';
+  const S_TITLE= 'Title';
+
+  S.preview = [];
+
+  S.shopifyRows.forEach((row, idx) => {
+    const rawSku   = String(row[S_SKU]||'').trim();
+    const cleanSku = normSku(rawSku);
+    const title    = String(row[S_TITLE]||'').trim();
+    const oldVP    = row[S_VP];
+    const oldVCP   = row[S_VCP];
+    const oldCost  = row[S_COST];
+
+    let tier, vendorMatch=null, matchNote='';
+
+    // ── TIER 1: SKU match ─────────────────────────────────────────────
+    if (cleanSku && vendorBySku[cleanSku]) {
+      const matches = vendorBySku[cleanSku];
+      // Check for conflicting prices (gold vs stainless scenario)
+      const uniquePrices = [...new Set(matches.map(m=>m.ca).filter(v=>v!==null))];
+      if (uniquePrices.length > 1) {
+        // Multiple different prices for same SKU → flag
+        tier = 2;
+        vendorMatch = matches[0];
+        matchNote = '⚠ Multiple prices found for this SKU — verify manually';
+      } else {
+        tier = 1;
+        vendorMatch = matches[0];
+      }
+    }
+    // ── TIER 2: Name match fallback ───────────────────────────────────
+    else if (title) {
+      const nm = vendorByName.find(v => fuzzyName(title, v.name));
+      if (nm) {
+        tier = 2;
+        vendorMatch = nm;
+        matchNote = `Name match: "${nm.name.substring(0,60)}${nm.name.length>60?'…':''}"`;
+      } else {
+        tier = 3;
+      }
+    }
+    // ── TIER 3: No match ──────────────────────────────────────────────
+    else {
+      tier = 3;
+    }
+
+    // Skip completely blank rows (no SKU and no title — pure image rows)
+    if (!cleanSku && !title) {
+      S.preview.push({ idx, tier:0, oldVP, oldVCP, oldCost, sku:rawSku, title, skipped:true });
+      return;
+    }
+
+    // Calculate new prices
+    let newVCP='', newVP='', newCost='';
+    if (vendorMatch && vendorMatch.ca !== null) {
+      const vcpHasValue = !isBlank(oldVCP);
+      newVCP = vcpHasValue ? String(vendorMatch.ca) : oldVCP;
+
+      if (S.dcMode==='keep') {
+        const eVCP=parseFloat(oldVCP), eVP=parseFloat(oldVP);
+        if (!isNaN(eVCP)&&eVCP>0&&!isNaN(eVP)) {
+          newVP = String(Math.round(vendorMatch.ca*(eVP/eVCP)*100)/100);
+        } else {
+          newVP = String(Math.round(vendorMatch.ca*(1-S.dcVal/100)*100)/100);
+        }
+      } else {
+        newVP = String(Math.round(vendorMatch.ca*(1-S.dcVal/100)*100)/100);
+      }
+
+      newCost = vendorMatch.cost !== null ? String(vendorMatch.cost) : oldCost;
+    }
+
+    S.preview.push({
+      idx, tier, sku: cleanSku||rawSku, title,
+      oldVP, newVP: newVP||oldVP,
+      oldVCP, newVCP: newVCP||oldVCP,
+      oldCost, newCost: newCost||oldCost,
+      vcpWasBlank: isBlank(oldVCP),
+      matchNote,
+      // For flagged rows: user-editable values (start as suggested)
+      editVP:  newVP||oldVP,
+      editVCP: newVCP||oldVCP,
+      editCost:newCost||oldCost,
+      accepted: tier===1,   // T1 auto-accepted; T2/T3 need user action
+      skipped:  false,
+    });
+  });
+
+  renderPreview();
+  updateExportNote();
+  updateHeader();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// RENDER PREVIEW
+// ══════════════════════════════════════════════════════════════════════════
+function renderPreview() {
+  const t1 = S.preview.filter(r=>r.tier===1);
+  const t2 = S.preview.filter(r=>r.tier===2);
+  const t3 = S.preview.filter(r=>r.tier===3);
+
+  const pendingT2 = t2.filter(r=>!r.accepted&&!r.skipped).length;
+  const pendingT3 = t3.filter(r=>!r.accepted&&!r.skipped).length;
+  S.pendingFlagged = pendingT2 + pendingT3;
+
+  const body = document.getElementById('previewBody');
+
+  let pendingNote = '';
+  if (S.pendingFlagged > 0) {
+    pendingNote = `<div class="pending-note">⚠ ${S.pendingFlagged} flagged row${S.pendingFlagged>1?'s':''} need your review before export is enabled. Accept, enter a manual price, or skip each one.</div>`;
+  }
+
+  body.innerHTML = `${pendingNote}<div class="preview-tabs">
+    <button class="ptab active" id="pt1" onclick="showTab(1)">
+      SKU Match <span class="badge badge-green">${t1.length}</span>
+    </button>
+    <button class="ptab" id="pt2" onclick="showTab(2)">
+      Flagged — Name Match <span class="badge badge-amber">${t2.length}</span>
+    </button>
+    <button class="ptab" id="pt3" onclick="showTab(3)">
+      No Match <span class="badge badge-red">${t3.length}</span>
+    </button>
+  </div>
+  <div id="tab1" class="tab-panel active">${buildT1Table(t1)}</div>
+  <div id="tab2" class="tab-panel">${buildFlaggedTable(t2, 2)}</div>
+  <div id="tab3" class="tab-panel">${buildFlaggedTable(t3, 3)}</div>`;
+
+  updateExportNote();
+}
+
+function showTab(n) {
+  [1,2,3].forEach(i=>{
+    document.getElementById('pt'+i).classList.toggle('active',i===n);
+    document.getElementById('tab'+i).classList.toggle('active',i===n);
+  });
+}
+
+function buildT1Table(rows) {
+  if (!rows.length) return '<div class="empty-state"><div class="big">✓</div><p>No SKU-matched rows</p></div>';
+  let html = `<div class="tbl-wrap"><table><thead><tr>
+    <th>SKU</th><th>Product</th>
+    <th>Price (old → new)</th><th>Compare At (old → new)</th><th>Cost (old → new)</th>
+    <th>Status</th>
+  </tr></thead><tbody>`;
+  rows.forEach(r => {
+    const vpC  = r.oldVP  !== r.newVP;
+    const vcpC = !r.vcpWasBlank && r.oldVCP !== r.newVCP;
+    const coC  = r.oldCost!== r.newCost;
+    html += `<tr>
+      <td class="c-sku">${esc(r.sku)}</td>
+      <td class="c-name" title="${esc(r.title)}">${esc(r.title.substring(0,45))}${r.title.length>45?'…':''}</td>
+      <td>${vpC?`<span class="c-old">${fmtPrice(r.oldVP)}</span> <span class="c-new">${fmtPrice(r.newVP)}</span>`:`<span class="c-same">${fmtPrice(r.newVP)}</span>`}</td>
+      <td>${r.vcpWasBlank?'<span style="color:var(--ink3);font-size:10px">blank→kept</span>':vcpC?`<span class="c-old">${fmtPrice(r.oldVCP)}</span> <span class="c-new">${fmtPrice(r.newVCP)}</span>`:`<span class="c-same">${fmtPrice(r.newVCP)}</span>`}</td>
+      <td>${coC?`<span class="c-old">${fmtPrice(r.oldCost)}</span> <span class="c-new">${fmtPrice(r.newCost)}</span>`:`<span class="c-same">${fmtPrice(r.newCost)}</span>`}</td>
+      <td><span class="tier-tag t1">AUTO</span></td>
+    </tr>`;
+  });
+  return html + '</tbody></table></div>';
+}
+
+function buildFlaggedTable(rows, tier) {
+  if (!rows.length) return `<div class="empty-state"><div class="big">${tier===2?'🟡':'🔴'}</div><p>No ${tier===2?'name-matched':'unmatched'} rows</p></div>`;
+
+  const tagClass = tier===2 ? 't2' : 't3';
+  const tagLabel = tier===2 ? 'NAME MATCH' : 'NO MATCH';
+
+  let html = `<div class="tbl-wrap"><table><thead><tr>
+    <th>SKU</th><th>Shopify Product</th>
+    <th>Variant Price</th><th>Compare At</th><th>Cost</th>
+    <th>Action</th>
+  </tr></thead><tbody>`;
+
+  rows.forEach((r, i) => {
+    const ri = S.preview.indexOf(r);
+    const isAcc  = r.accepted;
+    const isSkip = r.skipped;
+    const rowStyle = isSkip ? 'opacity:0.45;' : '';
+
+    html += `<tr style="${rowStyle}">
+      <td class="c-sku">${esc(r.sku)||'<span style="color:var(--ink3)">—</span>'}</td>
+      <td>
+        <div class="c-name" title="${esc(r.title)}">${esc(r.title.substring(0,40))}${r.title.length>40?'…':''}</div>
+        ${r.matchNote?`<div class="match-note">${esc(r.matchNote)}</div>`:''}
+      </td>
+      <td>
+        <div class="price-input-wrap">
+          <span class="price-edit-label">NEW PRICE</span>
+          <input class="price-edit ${tier===2&&!isBlank(r.newVP)?'suggested':''}" 
+            type="number" step="0.01" value="${isBlank(r.editVP)?'':parseFloat(r.editVP).toFixed(2)}"
+            onchange="updateEdit(${ri},'editVP',this.value)"
+            ${isSkip?'disabled':''} style="width:100px">
+          <span class="price-edit-label" style="color:var(--ink3)">was ${fmtPrice(r.oldVP)}</span>
+        </div>
+      </td>
+      <td>
+        <div class="price-input-wrap">
+          <span class="price-edit-label">COMPARE AT</span>
+          <input class="price-edit ${tier===2&&!isBlank(r.newVCP)?'suggested':''}"
+            type="number" step="0.01" value="${isBlank(r.editVCP)?'':parseFloat(r.editVCP).toFixed(2)}"
+            onchange="updateEdit(${ri},'editVCP',this.value)"
+            ${isSkip?'disabled':''} style="width:100px">
+          <span class="price-edit-label" style="color:var(--ink3)">was ${fmtPrice(r.oldVCP)}</span>
+        </div>
+      </td>
+      <td>
+        <div class="price-input-wrap">
+          <span class="price-edit-label">COST</span>
+          <input class="price-edit ${tier===2&&!isBlank(r.newCost)?'suggested':''}"
+            type="number" step="0.01" value="${isBlank(r.editCost)?'':parseFloat(r.editCost).toFixed(2)}"
+            onchange="updateEdit(${ri},'editCost',this.value)"
+            ${isSkip?'disabled':''} style="width:100px">
+          <span class="price-edit-label" style="color:var(--ink3)">was ${fmtPrice(r.oldCost)}</span>
+        </div>
+      </td>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+          <span class="tier-tag ${tagClass}">${tagLabel}</span>
+          <div class="row-actions">
+            <button class="accept-btn ${isAcc?'accepted':''}" onclick="acceptRow(${ri})" ${isSkip?'disabled':''}>
+              ${isAcc?'✓ Accepted':'Accept'}
+            </button>
+            <button class="skip-btn" onclick="skipRow(${ri})">
+              ${isSkip?'↩ Undo':'Skip'}
+            </button>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  return html + '</tbody></table></div>';
+}
+
+function updateEdit(ri, field, val) {
+  S.preview[ri][field] = val;
+}
+
+function acceptRow(ri) {
+  S.preview[ri].accepted = true;
+  S.preview[ri].skipped  = false;
+  // Sync edit values to new values
+  S.preview[ri].newVP   = S.preview[ri].editVP;
+  S.preview[ri].newVCP  = S.preview[ri].editVCP;
+  S.preview[ri].newCost = S.preview[ri].editCost;
+  renderPreview();
+}
+
+function skipRow(ri) {
+  S.preview[ri].skipped  = !S.preview[ri].skipped;
+  S.preview[ri].accepted = false;
+  renderPreview();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════════════════════════════════
+function doExport() {
+  const C_VP   = 'Variant Price';
+  const C_VCP  = 'Variant Compare At Price';
+  const C_COST = 'Cost per item';
+
+  const outputRows = S.shopifyRows.map((row, idx) => {
+    const pr = S.preview.find(p=>p.idx===idx);
+    if (!pr || pr.tier===0 || pr.skipped || !pr.accepted) return {...row};
+    const out = {...row};
+    if (!isBlank(pr.newVP))   out[C_VP]   = pr.newVP;
+    if (!pr.vcpWasBlank && !isBlank(pr.newVCP)) out[C_VCP]  = pr.newVCP;
+    if (!isBlank(pr.newCost)) out[C_COST] = pr.newCost;
+    return out;
+  });
+
+  const escCSV = v => {
+    const s = v===null||v===undefined?'':String(v);
+    return (s.includes(',')||s.includes('"')||s.includes('\n')) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+  const lines = [S.shopifyHeaders.map(escCSV).join(',')];
+  outputRows.forEach(r => lines.push(S.shopifyHeaders.map(h=>escCSV(r[h])).join(',')));
+
+  const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='shopify_export_updated.csv'; a.click();
+  URL.revokeObjectURL(url);
+  markDone('sw5');
+}
+
+function updateExportNote() {
+  if (!S.preview.length) return;
+  const t1 = S.preview.filter(r=>r.tier===1).length;
+  const t2acc = S.preview.filter(r=>r.tier===2&&r.accepted).length;
+  const t3acc = S.preview.filter(r=>r.tier===3&&r.accepted).length;
+  const pending = S.preview.filter(r=>(r.tier===2||r.tier===3)&&!r.accepted&&!r.skipped).length;
+
+  const canExport = pending === 0;
+  document.getElementById('btnExport').disabled = !canExport;
+  document.getElementById('exportNote').textContent = canExport
+    ? `${t1+t2acc+t3acc} rows will be updated`
+    : `${pending} flagged row${pending>1?'s':''} still need review`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// SAVED MAPPINGS
+// ══════════════════════════════════════════════════════════════════════════
+function saveMappingToStorage() {
+  try {
+    const key = MAPPING_KEY();
+    const data = { fileName: S.vendorFileName, headers: S.vendorHeaders, mapping: S.mapping, saved: new Date().toLocaleDateString() };
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function loadSavedMapping() {
+  try {
+    const key = MAPPING_KEY();
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return data.mapping;
+  } catch(e) { return null; }
+}
+
+function openMappingManager() {
+  const list = document.getElementById('mmList');
+  const keys = [];
+  try {
+    for (let i=0;i<localStorage.length;i++) {
+      const k=localStorage.key(i);
+      if (k.startsWith('spu_map_')) keys.push(k);
+    }
+  } catch(e){}
+
+  if (!keys.length) {
+    list.innerHTML = '<div class="no-saved">No saved mappings yet.<br>Mappings are saved automatically when you confirm a mapping.</div>';
+  } else {
+    list.innerHTML = keys.map(k => {
+      try {
+        const d = JSON.parse(localStorage.getItem(k));
+        const mapSummary = Object.entries(d.mapping).filter(([,v])=>v).map(([f,v])=>`${f} → ${v}`).join(' · ');
+        return `<div class="saved-map-item">
+          <div>
+            <div class="smi-name">📦 ${esc(d.fileName)}</div>
+            <div class="smi-detail">Saved: ${d.saved}<br>${esc(mapSummary)}</div>
+          </div>
+          <button class="smi-del" onclick="deleteMapping('${k}')">Delete</button>
+        </div>`;
+      } catch(e){ return ''; }
+    }).join('');
+  }
+  document.getElementById('mmOverlay').classList.add('open');
+}
+
+function deleteMapping(key) {
+  try { localStorage.removeItem(key); } catch(e){}
+  openMappingManager();
+}
+
+function closeMappingManager() {
+  document.getElementById('mmOverlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════════════════════════════════
+function unlock(id)   { document.getElementById(id).classList.remove('locked'); }
+function setActive(id){ document.getElementById(id).classList.add('active'); }
+function markDone(id) { const el=document.getElementById(id); el.classList.add('done'); el.classList.remove('active'); }
+
+function updateHeader() {
+  const t1 = S.preview.filter(r=>r.tier===1).length;
+  const flags = S.preview.filter(r=>r.tier===2||r.tier===3).length;
+  if (t1||flags) {
+    document.getElementById('hDot').classList.add('active');
+    document.getElementById('hStatus').textContent = `${t1} MATCHED · ${flags} FLAGGED`;
+  }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
