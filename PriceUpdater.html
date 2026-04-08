@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross Price Updater</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0e0f11; --surface: #16181c; --surface2: #1e2026; --border: #2a2d35;
+    --accent: #e8ff47; --accent2: #47d9ff; --success: #4dff91;
+    --text: #f0f2f5; --muted: #6b7280;
+    --mono: 'DM Mono', monospace; --display: 'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); min-height: 100vh; overflow-x: hidden; }
+  .noise { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"); }
+  header { padding: 32px 48px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-end; justify-content: space-between; position: relative; z-index: 1; }
+  .logo-tag { font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; display: block; }
+  .logo-title { font-family: var(--display); font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .logo-title span { color: var(--accent); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; margin-right: 6px; transition: background 0.3s; }
+  .status-dot.ready { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .status-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 40px 48px; position: relative; z-index: 1; }
+  .steps { display: flex; flex-direction: column; gap: 28px; }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color 0.3s; }
+  .step.active { border-color: var(--accent); }
+  .step.complete { border-color: var(--border); opacity: 0.9; }
+  .step-header { display: flex; align-items: center; gap: 16px; padding: 20px 28px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .step-num { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 13px; font-weight: 700; color: var(--muted); flex-shrink: 0; transition: all 0.3s; }
+  .step.active .step-num { border-color: var(--accent); color: var(--accent); }
+  .step.complete .step-num { border-color: var(--success); color: var(--success); background: rgba(77,255,145,0.08); }
+  .step-title { font-family: var(--display); font-size: 15px; font-weight: 700; }
+  .step-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .step-badge { margin-left: auto; font-size: 10px; letter-spacing: 1px; padding: 3px 10px; border-radius: 20px; background: rgba(77,255,145,0.1); color: var(--success); border: 1px solid rgba(77,255,145,0.25); opacity: 0; transition: opacity 0.3s; }
+  .step.complete .step-badge { opacity: 1; }
+  .step-body { padding: 24px 28px; }
+  .drop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .drop-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 28px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg); }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent2); background: rgba(71,217,255,0.04); }
+  .drop-zone.loaded { border-color: var(--success); border-style: solid; background: rgba(77,255,145,0.04); }
+  .drop-icon { font-size: 28px; margin-bottom: 10px; opacity: 0.6; }
+  .drop-label { font-family: var(--display); font-size: 13px; font-weight: 700; }
+  .drop-sub { font-size: 10px; color: var(--muted); margin-top: 4px; }
+  .drop-filename { font-size: 11px; color: var(--success); margin-top: 8px; min-height: 16px; }
+  .drop-count { font-size: 10px; color: var(--muted); min-height: 14px; }
+  input[type=file] { display: none; }
+  .discount-row { display: flex; align-items: center; gap: 20px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; }
+  .discount-label { font-family: var(--display); font-size: 14px; font-weight: 700; flex: 1; }
+  .discount-label small { display: block; font-family: var(--mono); font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 3px; }
+  .discount-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+  .toggle-btn { padding: 8px 16px; font-family: var(--mono); font-size: 11px; background: transparent; color: var(--muted); border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+  .toggle-btn.active { background: var(--accent); color: #000; font-weight: 500; }
+  .discount-input-wrap { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; transition: border-color 0.2s; flex-shrink: 0; }
+  .discount-input-wrap:focus-within { border-color: var(--accent); }
+  .discount-input-wrap.disabled { opacity: 0.35; pointer-events: none; }
+  .discount-input { background: transparent; border: none; outline: none; color: var(--accent); font-family: var(--mono); font-size: 20px; font-weight: 500; width: 60px; text-align: right; }
+  .discount-pct { font-size: 18px; color: var(--muted); }
+  .preview-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .preview-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  .preview-title { font-family: var(--display); font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+  .preview-counts { display: flex; gap: 16px; font-size: 11px; }
+  .cnt-updated { color: var(--success); }
+  .cnt-skipped { color: var(--muted); }
+  .table-scroll { overflow-x: auto; max-height: 340px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  thead { position: sticky; top: 0; z-index: 2; }
+  th { padding: 10px 14px; text-align: left; background: var(--surface); color: var(--muted); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid rgba(42,45,53,0.5); white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .c-sku { color: var(--accent2); }
+  .c-old { color: var(--muted); text-decoration: line-through; font-size: 10px; margin-right: 4px; }
+  .c-new { color: var(--success); }
+  .c-same { color: var(--muted); }
+  .tag-blank { font-size: 9px; padding: 2px 8px; border-radius: 10px; background: rgba(255,94,94,0.08); color: #ff9e9e; }
+  .export-row { display: flex; gap: 16px; align-items: center; }
+  .btn-export { font-family: var(--display); font-size: 14px; font-weight: 700; padding: 14px 36px; border-radius: 8px; border: none; cursor: pointer; background: var(--accent); color: #000; transition: all 0.2s; }
+  .btn-export:hover:not(:disabled) { background: #f5ff70; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,255,71,0.25); }
+  .btn-export:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+  .export-note { font-size: 11px; color: var(--muted); }
+  .empty-state { text-align: center; padding: 40px; color: var(--muted); font-size: 12px; }
+  .empty-state .big { font-size: 32px; margin-bottom: 8px; }
+  .fade-in { animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<header>
+  <div>
+    <span class="logo-tag">Pricing Tool v1.1</span>
+    <span class="logo-title">Cross <span>Price</span> Updater</span>
+  </div>
+  <div>
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">WAITING FOR FILES</span>
+  </div>
+</header>
+<main>
+  <div class="steps">
+
+    <div class="step active" id="step1">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div><div class="step-title">Upload Files</div><div class="step-desc">Vendor pricing file (.xlsx) and your export file (.csv)</div></div>
+        <div class="step-badge">✓ LOADED</div>
+      </div>
+      <div class="step-body">
+        <div class="drop-grid">
+          <div class="drop-zone" id="dropVendor" onclick="document.getElementById('fileVendor').click()">
+            <input type="file" id="fileVendor" accept=".xlsx,.xls" onchange="handleVendor(this)">
+            <div class="drop-icon">📦</div>
+            <div class="drop-label">Vendor Official Cross</div>
+            <div class="drop-sub">XLSX — source of new prices</div>
+            <div class="drop-filename" id="vendorName"></div>
+            <div class="drop-count" id="vendorCount">No file selected</div>
+          </div>
+          <div class="drop-zone" id="dropExport" onclick="document.getElementById('fileExport').click()">
+            <input type="file" id="fileExport" accept=".csv" onchange="handleExport(this)">
+            <div class="drop-icon">📋</div>
+            <div class="drop-label">Cross Export</div>
+            <div class="drop-sub">CSV — file to be updated</div>
+            <div class="drop-filename" id="exportName"></div>
+            <div class="drop-count" id="exportCount">No file selected</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="step2">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div><div class="step-title">Discount Settings</div><div class="step-desc">Control how Variant Price is calculated from Vendor MSRP</div></div>
+        <div class="step-badge">✓ SET</div>
+      </div>
+      <div class="step-body">
+        <div class="discount-row">
+          <div class="discount-label">
+            Variant Price Discount
+            <small>Variant Price = MSRP × (1 − discount%). "Keep existing" preserves each SKU's current individual rate.</small>
+          </div>
+          <div class="discount-toggle">
+            <button class="toggle-btn" id="btnKeep" onclick="setDiscountMode('keep')">Keep existing %</button>
+            <button class="toggle-btn active" id="btnOverride" onclick="setDiscountMode('override')">Override</button>
+          </div>
+          <div class="discount-input-wrap" id="discountInputWrap">
+            <input type="number" class="discount-input" id="discountInput" value="20" min="0" max="99" step="0.5" oninput="onDiscountChange()">
+            <span class="discount-pct">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="step3">
+      <div class="step-header">
+        <div class="step-num">3</div>
+        <div><div class="step-title">Preview Changes</div><div class="step-desc">Review all price updates before exporting</div></div>
+        <div class="step-badge">✓ REVIEWED</div>
+      </div>
+      <div class="step-body">
+        <div id="previewArea">
+          <div class="empty-state"><div class="big">🔍</div>Upload both files to see the preview</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="step4">
+      <div class="step-header">
+        <div class="step-num">4</div>
+        <div><div class="step-title">Export Updated CSV</div><div class="step-desc">Download the updated Cross export, ready to import</div></div>
+        <div class="step-badge">✓ DONE</div>
+      </div>
+      <div class="step-body">
+        <div class="export-row">
+          <button class="btn-export" id="btnExport" disabled onclick="doExport()">⬇ Download Updated CSV</button>
+          <span class="export-note" id="exportNote">Upload both files to enable export</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let vendorMap    = null;   // { sku: { msrp, retail } }
+let exportHeaders = [];
+let exportRows   = [];     // array of { col: rawString }
+let discountMode = 'override';
+let overrideDiscount = 20;
+let previewRows  = [];
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+// True when a CSV cell value should be treated as "no value"
+function isBlank(v) {
+  if (v === null || v === undefined) return true;
+  const s = String(v).trim().toLowerCase();
+  return s === '' || s === 'nan' || s === 'null';
+}
+function fmt(v) { return isBlank(v) ? '—' : '$' + v; }
+
+// ── Vendor XLSX ────────────────────────────────────────────────────────────
+function handleVendor(input) {
+  const file = input.files[0]; if (!file) return;
+  document.getElementById('vendorName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb  = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const ws  = wb.Sheets[wb.SheetNames[0]];
+      // raw:false → numbers as strings so we control parsing; defval:'' for empty cells
+      const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+
+      // Locate header row (first row where a cell equals "Skus" case-insensitive)
+      let hRow = -1;
+      for (let i = 0; i < raw.length; i++) {
+        if (raw[i].some(c => String(c).trim().toLowerCase() === 'skus')) { hRow = i; break; }
+      }
+      if (hRow < 0) { alert('Cannot find "Skus" column in vendor file.'); return; }
+
+      const hdrs   = raw[hRow].map(h => String(h).trim());
+      const iSku   = hdrs.findIndex(h => h.toLowerCase() === 'skus');
+      const iMsrp  = hdrs.findIndex(h => h.toLowerCase() === 'msrp');
+      const iRetail= hdrs.findIndex(h => h.toLowerCase() === 'retail price');
+
+      vendorMap = {};
+      let count = 0;
+      for (let i = hRow + 1; i < raw.length; i++) {
+        const r   = raw[i];
+        const sku = String(r[iSku] || '').trim().replace(/^'+/, '');
+        if (!sku) continue;
+        const msrp   = parseFloat(String(r[iMsrp]  || '').replace(/[^0-9.-]/g, ''));
+        const retail = parseFloat(String(r[iRetail] || '').replace(/[^0-9.-]/g, ''));
+        vendorMap[sku] = { msrp: isNaN(msrp) ? null : msrp, retail: isNaN(retail) ? null : retail };
+        count++;
+      }
+      document.getElementById('vendorCount').textContent = count + ' SKUs loaded';
+      document.getElementById('dropVendor').classList.add('loaded');
+      tryBuildPreview();
+    } catch(err) { alert('Error reading vendor file: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Export CSV ─────────────────────────────────────────────────────────────
+function handleExport(input) {
+  const file = input.files[0]; if (!file) return;
+  document.getElementById('exportName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const p = parseCSV(e.target.result);
+      exportHeaders = p.headers;
+      exportRows    = p.rows;
+      document.getElementById('exportCount').textContent = exportRows.length + ' rows loaded';
+      document.getElementById('dropExport').classList.add('loaded');
+      tryBuildPreview();
+    } catch(err) { alert('Error reading export file: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+// Robust CSV parser — preserves raw string values exactly as they appear
+function parseCSV(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+  const headers = splitCSVLine(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const vals = splitCSVLine(lines[i]);
+    const row  = {};
+    headers.forEach((h, j) => { row[h] = vals[j] !== undefined ? vals[j] : ''; });
+    rows.push(row);
+  }
+  return { headers, rows };
+}
+
+function splitCSVLine(line) {
+  const out = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }  // escaped ""
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) { out.push(cur); cur = ''; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+
+// ── Discount controls ──────────────────────────────────────────────────────
+function setDiscountMode(mode) {
+  discountMode = mode;
+  document.getElementById('btnKeep').classList.toggle('active', mode === 'keep');
+  document.getElementById('btnOverride').classList.toggle('active', mode === 'override');
+  document.getElementById('discountInputWrap').classList.toggle('disabled', mode === 'keep');
+  tryBuildPreview();
+}
+
+function onDiscountChange() {
+  const v = parseFloat(document.getElementById('discountInput').value);
+  overrideDiscount = isNaN(v) ? 0 : v;
+  tryBuildPreview();
+}
+
+// ── Core logic ─────────────────────────────────────────────────────────────
+function tryBuildPreview() {
+  if (!vendorMap || !exportRows.length) return;
+
+  const C_SKU  = 'Variant SKU';
+  const C_VP   = 'Variant Price';
+  const C_VCP  = 'Variant Compare At Price';
+  const C_COST = 'Cost per item';
+
+  previewRows = [];
+  let updated = 0, skipped = 0;
+
+  exportRows.forEach((row, idx) => {
+    const sku    = String(row[C_SKU] || '').trim().replace(/^'+/, '');
+    const vendor = sku ? vendorMap[sku] : null;
+
+    const oldVP   = row[C_VP];
+    const oldVCP  = row[C_VCP];
+    const oldCost = row[C_COST];
+
+    // ── No match: leave everything untouched ──
+    if (!vendor || vendor.msrp === null) {
+      previewRows.push({ idx, sku: sku||'—', status:'skipped', oldVP, newVP:oldVP, oldVCP, newVCP:oldVCP, oldCost, newCost:oldCost });
+      skipped++; return;
+    }
+
+    const msrp   = vendor.msrp;
+    const retail = vendor.retail;
+
+    // Variant Compare At Price → Vendor MSRP (only if it had a value before)
+    const vcpHasValue = !isBlank(oldVCP);
+    const newVCP = vcpHasValue ? String(msrp) : oldVCP;
+
+    // Variant Price → MSRP × (1 − discount)
+    let newVP;
+    if (discountMode === 'keep') {
+      const eVCP = parseFloat(oldVCP), eVP = parseFloat(oldVP);
+      if (!isNaN(eVCP) && eVCP > 0 && !isNaN(eVP)) {
+        newVP = Math.round(msrp * (eVP / eVCP) * 100) / 100;
+      } else {
+        newVP = Math.round(msrp * (1 - overrideDiscount / 100) * 100) / 100;
+      }
+    } else {
+      newVP = Math.round(msrp * (1 - overrideDiscount / 100) * 100) / 100;
+    }
+
+    // Cost per item → Vendor Retail Price
+    const newCost = retail !== null ? String(retail) : oldCost;
+
+    previewRows.push({ idx, sku, status:'updated', oldVP, newVP:String(newVP), oldVCP, newVCP, oldCost, newCost, vcpWasBlank:!vcpHasValue });
+    updated++;
+  });
+
+  renderPreview(updated, skipped);
+}
+
+// ── Render preview table ───────────────────────────────────────────────────
+function renderPreview(updated, skipped) {
+  // Only show matched rows in the table
+  const rows = previewRows.filter(r => r.status === 'updated');
+
+  let html = `<div class="preview-wrap fade-in">
+    <div class="preview-header">
+      <span class="preview-title">Change Log</span>
+      <div class="preview-counts">
+        <span class="cnt-updated">${updated} updated</span>
+        <span class="cnt-skipped">${skipped} unchanged</span>
+      </div>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr>
+        <th>SKU</th>
+        <th>Variant Price → New</th>
+        <th>Compare At → New</th>
+        <th>Cost / Item → New</th>
+      </tr></thead><tbody>`;
+
+  rows.forEach(r => {
+    const vpChanged   = r.oldVP   !== r.newVP;
+    const vcpChanged  = !r.vcpWasBlank && (r.oldVCP !== r.newVCP);
+    const costChanged = r.oldCost !== r.newCost;
+
+    const priceCell = (oldV, newV, changed, wasBlank) => {
+      if (wasBlank) return `<span class="tag-blank">blank → kept blank</span>`;
+      if (changed)  return `<span class="c-old">${fmt(oldV)}</span><span class="c-new">${fmt(newV)}</span>`;
+      return `<span class="c-same">${fmt(newV)}</span>`;
+    };
+
+    html += `<tr>
+      <td class="c-sku">${r.sku}</td>
+      <td>${priceCell(r.oldVP, r.newVP, vpChanged, false)}</td>
+      <td>${priceCell(r.oldVCP, r.newVCP, vcpChanged, r.vcpWasBlank)}</td>
+      <td>${priceCell(r.oldCost, r.newCost, costChanged, false)}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div></div>`;
+  document.getElementById('previewArea').innerHTML = html;
+
+  document.getElementById('btnExport').disabled = false;
+  document.getElementById('exportNote').textContent = updated + ' SKUs will be updated · ' + skipped + ' rows unchanged';
+  document.getElementById('statusDot').classList.add('ready');
+  document.getElementById('statusLabel').textContent = updated + ' UPDATES READY';
+
+  ['step1','step2','step3','step4'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('active');
+    if (i === 0) el.classList.add('complete');
+    else { el.classList.add('active'); if (i < 3) el.classList.add('complete'); }
+  });
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function doExport() {
+  if (!exportRows.length || !previewRows.length) return;
+
+  const C_VP   = 'Variant Price';
+  const C_VCP  = 'Variant Compare At Price';
+  const C_COST = 'Cost per item';
+
+  const outputRows = exportRows.map((row, idx) => {
+    const pr = previewRows.find(p => p.idx === idx);
+    if (!pr || pr.status !== 'updated') return { ...row };
+    const out = { ...row };
+    out[C_VP]   = pr.newVP;
+    if (!pr.vcpWasBlank) out[C_VCP] = pr.newVCP;
+    if (!isBlank(pr.newCost)) out[C_COST] = pr.newCost;
+    return out;
+  });
+
+  const esc = v => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return (s.includes(',') || s.includes('"') || s.includes('\n'))
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+
+  const lines = [exportHeaders.map(esc).join(',')];
+  outputRows.forEach(r => lines.push(exportHeaders.map(h => esc(r[h])).join(',')));
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'Cross_export_updated.csv'; a.click();
+  URL.revokeObjectURL(url);
+  document.getElementById('step4').classList.add('complete');
+}
+
+// ── Drag & Drop ────────────────────────────────────────────────────────────
+['dropVendor','dropExport'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('dragover',  e => { e.preventDefault(); el.classList.add('dragover'); });
+  el.addEventListener('dragleave', ()  => el.classList.remove('dragover'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('dragover');
+    const file = e.dataTransfer.files[0]; if (!file) return;
+    const isV  = id === 'dropVendor';
+    const inp  = document.getElementById(isV ? 'fileVendor' : 'fileExport');
+    const dt   = new DataTransfer(); dt.items.add(file); inp.files = dt.files;
+    isV ? handleVendor(inp) : handleExport(inp);
+  });
+});
+</script>
+</body>
+</html>
