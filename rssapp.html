@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security News RSS Reader</title>
+
+  <style>
+    :root {
+      --bg: #0b1120;
+      --panel: #111827;
+      --panel-2: #172033;
+      --panel-3: #1f2937;
+      --border: #2b374d;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --blue: #3b82f6;
+      --blue-dark: #2563eb;
+      --yellow: #facc15;
+      --red: #ef4444;
+      --green: #22c55e;
+      --shadow: 0 15px 40px rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr) 340px;
+    }
+
+    .sidebar,
+    .details-panel {
+      background: var(--panel);
+      border-color: var(--border);
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .details-panel {
+      border-left: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .brand {
+      font-size: 21px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 25px;
+    }
+
+    .section-title {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      margin: 22px 0 9px;
+      text-transform: uppercase;
+    }
+
+    .feed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .feed-item {
+      align-items: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #cbd5e1;
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      user-select: none;
+    }
+
+    .feed-item:hover,
+    .feed-item.active {
+      background: var(--panel-2);
+      border-color: var(--border);
+      color: white;
+    }
+
+    .feed-item.dragging {
+      opacity: 0.45;
+    }
+
+    .drag-handle {
+      color: #64748b;
+      cursor: grab;
+      font-size: 16px;
+    }
+
+    .feed-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .feed-count {
+      background: var(--panel-3);
+      border-radius: 20px;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 2px 7px;
+    }
+
+    .feed-actions {
+      display: none;
+      gap: 3px;
+    }
+
+    .feed-item:hover .feed-actions {
+      display: flex;
+    }
+
+    .icon-button {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      padding: 3px;
+    }
+
+    .icon-button:hover {
+      color: white;
+    }
+
+    .toolbar {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .toolbar h1 {
+      font-size: 28px;
+      margin: 0;
+    }
+
+    .toolbar p {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 5px 0 0;
+    }
+
+    .toolbar-left {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .toolbar-controls {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    input,
+    select {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: white;
+      outline: none;
+      padding: 10px 11px;
+      width: 100%;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--blue);
+    }
+
+    .search {
+      max-width: 300px;
+    }
+
+    .button {
+      background: var(--panel-3);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: white;
+      padding: 9px 12px;
+    }
+
+    .button:hover {
+      background: #29364b;
+    }
+
+    .button.primary {
+      background: var(--blue-dark);
+      border-color: var(--blue);
+    }
+
+    .button.primary:hover {
+      background: var(--blue);
+    }
+
+    .button.danger {
+      color: #fecaca;
+    }
+
+    .button.small {
+      font-size: 12px;
+      padding: 6px 8px;
+    }
+
+    .articles {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 1000px;
+    }
+
+    .article {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 17px;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .article:hover {
+      border-color: #475569;
+      transform: translateY(-1px);
+    }
+
+    .article.unread {
+      border-left: 3px solid var(--blue);
+    }
+
+    .article.pinned {
+      border-color: #927c1f;
+    }
+
+    .article.hidden {
+      opacity: 0.45;
+    }
+
+    .article-top {
+      align-items: center;
+      color: var(--muted);
+      display: flex;
+      font-size: 12px;
+      gap: 9px;
+      justify-content: space-between;
+      margin-bottom: 9px;
+    }
+
+    .article-source {
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .article-title {
+      color: white;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 750;
+      line-height: 1.35;
+      margin: 0 0 8px;
+    }
+
+    .article-title:hover {
+      color: #93c5fd;
+    }
+
+    .article-description {
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.55;
+      margin: 0 0 13px;
+    }
+
+    .article-bottom {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      justify-content: space-between;
+    }
+
+    .article-date {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .article-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 12px;
+      min-height: 18px;
+    }
+
+    .details-empty {
+      color: var(--muted);
+      line-height: 1.6;
+      margin-top: 30px;
+    }
+
+    .details-panel h2 {
+      font-size: 18px;
+      margin: 0 0 18px;
+    }
+
+    .detail-title {
+      font-size: 22px;
+      line-height: 1.35;
+      margin: 12px 0;
+    }
+
+    .detail-description {
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    .detail-meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    .modal-backdrop {
+      align-items: center;
+      background: rgba(0, 0, 0, 0.72);
+      display: none;
+      inset: 0;
+      justify-content: center;
+      padding: 20px;
+      position: fixed;
+      z-index: 10;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      max-width: 570px;
+      padding: 23px;
+      width: 100%;
+    }
+
+    .modal-header {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .modal-header h2 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      color: #cbd5e1;
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .mobile-only {
+      display: none;
+    }
+
+    @media (max-width: 1100px) {
+      .app {
+        grid-template-columns: 230px minmax(0, 1fr);
+      }
+
+      .details-panel {
+        display: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app {
+        display: block;
+      }
+
+      .sidebar {
+        border-bottom: 1px solid var(--border);
+        border-right: 0;
+        padding: 15px;
+      }
+
+      .brand {
+        margin-bottom: 2px;
+      }
+
+      .feed-list {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 3px;
+      }
+
+      .feed-item {
+        flex: 0 0 auto;
+      }
+
+      .feed-item .feed-actions,
+      .drag-handle {
+        display: none;
+      }
+
+      .main {
+        padding: 17px;
+      }
+
+      .toolbar {
+        align-items: stretch;
+        display: block;
+      }
+
+      .toolbar-controls {
+        margin-top: 15px;
+      }
+
+      .search {
+        max-width: none;
+      }
+
+      .toolbar h1 {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">Security Reader</div>
+      <div class="subtitle">Security and technology news</div>
+
+      <button class="button primary" id="addFeedButton" style="width: 100%;">
+        + Add website
+      </button>
+
+      <div class="section-title">Websites</div>
+      <div class="feed-list" id="feedList"></div>
+
+      <div class="status" id="status"></div>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <h1 id="pageTitle">All articles</h1>
+          <p id="articleSummary">Loading articles…</p>
+        </div>
+
+        <div class="toolbar-controls">
+          <input
+            class="search"
+            id="searchInput"
+            type="search"
+            placeholder="Search articles..."
+          />
+
+          <select id="sortSelect">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="source">Website order</option>
+          </select>
+
+          <button class="button" id="unreadButton">
+            Unread only
+          </button>
+
+          <button class="button primary" id="refreshButton">
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <section class="articles" id="articles"></section>
+    </main>
+
+    <aside class="details-panel">
+      <h2>Article details</h2>
+      <div id="details">
+        <div class="details-empty">
+          Select an article to view its details here.
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal-backdrop" id="feedModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add website</h2>
+        <button class="icon-button" id="closeModalButton">✕</button>
+      </div>
+
+      <form id="feedForm">
+        <input type="hidden" id="editingFeedId" />
+
+        <div class="form-group">
+          <label for="feedName">Website name</label>
+          <input
+            id="feedName"
+            required
+            placeholder="Example Security Blog"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="feedUrl">RSS or Atom feed URL</label>
+          <input
+            id="feedUrl"
+            type="url"
+            required
+            placeholder="https://example.com/feed.xml"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="siteUrl">Website URL</label>
+          <input
+            id="siteUrl"
+            type="url"
+            placeholder="https://example.com"
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="button" id="cancelModalButton">
+            Cancel
+          </button>
+          <button type="submit" class="button primary">
+            Save website
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEYS = {
+      feeds: "security-reader-feeds",
+      articles: "security-reader-articles",
+      settings: "security-reader-settings"
+    };
+
+    const DEFAULT_FEEDS = [
+      {
+        id: crypto.randomUUID(),
+        name: "BleepingComputer",
+        url: "https://www.bleepingcomputer.com/feed/",
+        siteUrl: "https://www.bleepingcomputer.com/",
+        enabled: true,
+        position: 0
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Dark Reading",
+        url: "https://www.darkreading.com/rss.xml",
+        siteUrl: "https://www.darkreading.com/",
+        enabled: true,
+        position: 1
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "Ars Technica",
+        url: "https://feeds.arstechnica.com/arstechnica/index",
+        siteUrl: "https://arstechnica.com/",
+        enabled: true,
+        position: 2
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "404 Media",
+        url: "https://www.404media.co/rss/",
+        siteUrl: "https://www.404media.co/",
+        enabled: true,
+        position: 3
+      },
+      {
+        id: crypto.randomUUID(),
+        name: "KrebsOnSecurity",
+        url: "https://krebsonsecurity.com/feed/",
+        siteUrl: "https://krebsonsecurity.com/",
+        enabled: true,
+        position: 4
+      }
+    ];
+
+    let feeds = load(STORAGE_KEYS.feeds, null);
+
+    if (!feeds) {
+      feeds = DEFAULT_FEEDS;
+      save(STORAGE_KEYS.feeds, feeds);
+    }
+
+    let articles = load(STORAGE_KEYS.articles, []);
+    let settings = load(STORAGE_KEYS.settings, {
+      selectedFeed: "all",
+      unreadOnly: false,
+      sort: "newest",
+      search: ""
+    });
+
+    let selectedArticleId = null;
+    let draggedFeedId = null;
+
+    const feedList = document.getElementById("feedList");
+    const articlesContainer = document.getElementById("articles");
+    const detailsContainer = document.getElementById("details");
+    const statusElement = document.getElementById("status");
+    const pageTitle = document.getElementById("pageTitle");
+    const articleSummary = document.getElementById("articleSummary");
+    const searchInput = document.getElementById("searchInput");
+    const sortSelect = document.getElementById("sortSelect");
+    const unreadButton = document.getElementById("unreadButton");
+    const refreshButton = document.getElementById("refreshButton");
+    const feedModal = document.getElementById("feedModal");
+    const feedForm = document.getElementById("feedForm");
+
+    searchInput.value = settings.search;
+    sortSelect.value = settings.sort;
+
+    function load(key, fallback) {
+      try {
+        const value = localStorage.getItem(key);
+        return value ? JSON.parse(value) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function save(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function escapeHtml(value = "") {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function stripHtml(value = "") {
+      const temp = document.createElement("div");
+      temp.innerHTML = value;
+      return temp.textContent || temp.innerText || "";
+    }
+
+    function formatDate(value) {
+      if (!value) return "Unknown date";
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return "Unknown date";
+      }
+
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }).format(date);
+    }
+
+    function getFeed(feedId) {
+      return feeds.find(feed => feed.id === feedId);
+    }
+
+    function getFeedName(feedId) {
+      return getFeed(feedId)?.name || "Unknown website";
+    }
+
+    function renderFeeds() {
+      const sortedFeeds = [...feeds].sort((a, b) => a.position - b.position);
+
+      const allUnread = articles.filter(article =>
+        !article.read && !article.hidden
+      ).length;
+
+      feedList.innerHTML = `
+        <div
+          class="feed-item ${settings.selectedFeed === "all" ? "active" : ""}"
+          data-feed-id="all"
+        >
+          <span class="feed-name">★ All articles</span>
+          <span class="feed-count">${allUnread}</span>
+        </div>
+      `;
+
+      sortedFeeds.forEach(feed => {
+        const unreadCount = articles.filter(article =>
+          article.feedId === feed.id &&
+          !article.read &&
+          !article.hidden
+        ).length;
+
+        const item = document.createElement("div");
+
+        item.className =
+          "feed-item " +
+          (settings.selectedFeed === feed.id ? "active" : "") +
+          (!feed.enabled ? " hidden" : "");
+
+        item.draggable = true;
+        item.dataset.feedId = feed.id;
+
+        item.innerHTML = `
+          <span class="drag-handle" title="Drag to reorder">☷</span>
+          <span class="feed-name">${escapeHtml(feed.name)}</span>
+          <span class="feed-count">${unreadCount}</span>
+          <span class="feed-actions">
+            <button class="icon-button edit-feed" title="Edit">✎</button>
+            <button class="icon-button delete-feed" title="Delete">×</button>
+          </span>
+        `;
+
+        feedList.appendChild(item);
+      });
+
+      feedList.querySelectorAll(".feed-item").forEach(item => {
+        item.addEventListener("click", event => {
+          if (
+            event.target.closest(".edit-feed") ||
+            event.target.closest(".delete-feed")
+          ) {
+            return;
+          }
+
+          settings.selectedFeed = item.dataset.feedId;
+          save(STORAGE_KEYS.settings, settings);
+          render();
+        });
+
+        item.addEventListener("dragstart", () => {
+          draggedFeedId = item.dataset.feedId;
+          item.classList.add("dragging");
+        });
+
+        item.addEventListener("dragend", () => {
+          item.classList.remove("dragging");
+        });
+
+        item.addEventListener("dragover", event => {
+          event.preventDefault();
+        });
+
+        item.addEventListener("drop", event => {
+          event.preventDefault();
+
+          const targetId = item.dataset.feedId;
+
+          if (!draggedFeedId || draggedFeedId === "all") return;
+          if (targetId === "all" || targetId === draggedFeedId) return;
+
+          const dragged = feeds.find(feed => feed.id === draggedFeedId);
+          const target = feeds.find(feed => feed.id === targetId);
+
+          if (!dragged || !target) return;
+
+          const oldPosition = dragged.position;
+          dragged.position = target.position;
+          target.position = oldPosition;
+
+          save(STORAGE_KEYS.feeds, feeds);
+          render();
+        });
+      });
+
+      feedList.querySelectorAll(".edit-feed").forEach(button => {
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+
+          const feedId = button.closest(".feed-item").dataset.feedId;
+          openFeedModal(feedId);
+        });
+      });
+
+      feedList.querySelectorAll(".delete-feed").forEach(button => {
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+
+          const feedId = button.closest(".feed-item").dataset.feedId;
+          const feed = getFeed(feedId);
+
+          if (!feed) return;
+
+          const confirmed = confirm(
+            `Remove ${feed.name} and its saved articles?`
+          );
+
+          if (!confirmed) return;
+
+          feeds = feeds.filter(item => item.id !== feedId);
+          articles = articles.filter(article => article.feedId !== feedId);
+
+          if (settings.selectedFeed === feedId) {
+            settings.selectedFeed = "all";
+          }
+
+          save(STORAGE_KEYS.feeds, feeds);
+          save(STORAGE_KEYS.articles, articles);
+          save(STORAGE_KEYS.settings, settings);
+          render();
+        });
+      });
+    }
+
+    function filteredArticles() {
+      const search = settings.search.trim().toLowerCase();
+
+      let result = articles.filter(article => {
+        const matchesFeed =
+          settings.selectedFeed === "all" ||
+          article.feedId === settings.selectedFeed;
+
+        const matchesUnread =
+          !settings.unreadOnly || !article.read;
+
+        const searchableText = [
+          article.title,
+          article.description,
+          getFeedName(article.feedId)
+        ].join(" ").toLowerCase();
+
+        const matchesSearch =
+          !search || searchableText.includes(search);
+
+        return (
+          matchesFeed &&
+          matchesUnread &&
+          matchesSearch &&
+          !article.hidden
+        );
+      });
+
+      if (settings.sort === "oldest") {
+        result.sort((a, b) =>
+          new Date(a.publishedAt || 0) - new Date(b.publishedAt || 0)
+        );
+      } else if (settings.sort === "source") {
+        result.sort((a, b) => {
+          const feedA = getFeed(a.feedId)?.position ?? 999;
+          const feedB = getFeed(b.feedId)?.position ?? 999;
+
+          if (feedA !== feedB) return feedA - feedB;
+
+          return new Date(b.publishedAt || 0) -
+            new Date(a.publishedAt || 0);
+        });
+      } else {
+        result.sort((a, b) => {
+          if (a.pinned !== b.pinned) {
+            return a.pinned ? -1 : 1;
+          }
+
+          return new Date(b.publishedAt || 0) -
+            new Date(a.publishedAt || 0);
+        });
+      }
+
+      return result;
+    }
+
+    function renderArticles() {
+      const visibleArticles = filteredArticles();
+
+      const selectedFeed =
+        settings.selectedFeed === "all"
+          ? null
+          : getFeed(settings.selectedFeed);
+
+      pageTitle.textContent = selectedFeed
+        ? selectedFeed.name
+        : "All articles";
+
+      articleSummary.textContent =
+        `${visibleArticles.length} article` +
+        `${visibleArticles.length === 1 ? "" : "s"} displayed`;
+
+      if (!visibleArticles.length) {
+        articlesContainer.innerHTML = `
+          <div class="empty">
+            No articles match the current filters.
+            <br /><br />
+            Try refreshing the feeds or changing your filters.
+          </div>
+        `;
+        return;
+      }
+
+      articlesContainer.innerHTML = visibleArticles.map(article => {
+        const description = stripHtml(article.description || "");
+        const shortenedDescription =
+          description.length > 280
+            ? description.slice(0, 280) + "…"
+            : description;
+
+        return `
+          <article
+            class="article ${article.read ? "" : "unread"}
+              ${article.pinned ? "pinned" : ""}"
+          >
+            <div class="article-top">
+              <span class="article-source">
+                ${escapeHtml(getFeedName(article.feedId))}
+              </span>
+
+              <span>
+                ${article.pinned ? "★ Pinned · " : ""}
+                ${formatDate(article.publishedAt)}
+              </span>
+            </div>
+
+            <h2
+              class="article-title"
+              data-action="open"
+              data-id="${article.id}"
+            >
+              ${escapeHtml(article.title)}
+            </h2>
+
+            <p class="article-description">
+              ${escapeHtml(shortenedDescription)}
+            </p>
+
+            <div class="article-bottom">
+              <span class="article-date">
+                ${article.author ? escapeHtml(article.author) : ""}
+              </span>
+
+              <div class="article-buttons">
+                <button
+                  class="button small"
+                  data-action="open"
+                  data-id="${article.id}"
+                >
+                  Read
+                </button>
+
+                <button
+                  class="button small"
+                  data-action="pin"
+                  data-id="${article.id}"
+                >
+                  ${article.pinned ? "Unpin" : "Pin"}
+                </button>
+
+                <button
+                  class="button small"
+                  data-action="read"
+                  data-id="${article.id}"
+                >
+                  ${article.read ? "Unread" : "Mark read"}
+                </button>
+
+                <button
+                  class="button small danger"
+                  data-action="hide"
+                  data-id="${article.id}"
+                >
+                  Hide
+                </button>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      articlesContainer.querySelectorAll("[data-action]").forEach(button => {
+        button.addEventListener("click", () => {
+          const id = button.dataset.id;
+          const action = button.dataset.action;
+          const article = articles.find(item => item.id === id);
+
+          if (!article) return;
+
+          if (action === "open") {
+            article.read = true;
+            selectedArticleId = id;
+            save(STORAGE_KEYS.articles, articles);
+            render();
+            window.open(article.url, "_blank", "noopener,noreferrer");
+          }
+
+          if (action === "pin") {
+            article.pinned = !article.pinned;
+            save(STORAGE_KEYS.articles, articles);
+            render();
+          }
+
+          if (action === "read") {
+            article.read = !article.read;
+            save(STORAGE_KEYS.articles, articles);
+            render();
+          }
+
+          if (action === "hide") {
+            article.hidden = true;
+            save(STORAGE_KEYS.articles, articles);
+            render();
+          }
+        });
+      });
+    }
+
+    function renderDetails() {
+      const article = articles.find(item => item.id === selectedArticleId);
+
+      if (!article) {
+        detailsContainer.innerHTML = `
+          <div class="details-empty">
+            Select an article to view its details here.
+          </div>
+        `;
+        return;
+      }
+
+      detailsContainer.innerHTML = `
+        <div class="detail-meta">
+          ${escapeHtml(getFeedName(article.feedId))}
+          <br />
+          ${formatDate(article.publishedAt)}
+          ${article.author ? `<br />${escapeHtml(article.author)}` : ""}
+        </div>
+
+        <h3 class="detail-title">${escapeHtml(article.title)}</h3>
+
+        <p class="detail-description">
+          ${escapeHtml(stripHtml(article.description || "No description available."))}
+        </p>
+
+        <br />
+
+        <a
+          class="button primary"
+          href="${escapeHtml(article.url)}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open original article
+        </a>
+      `;
+    }
+
+    function render() {
+      renderFeeds();
+      renderArticles();
+      renderDetails();
+
+      unreadButton.textContent = settings.unreadOnly
+        ? "Showing unread"
+        : "Unread only";
+    }
+
+    function setStatus(message, isError = false) {
+      statusElement.textContent = message;
+      statusElement.style.color = isError
+        ? "#fca5a5"
+        : "var(--muted)";
+    }
+
+    function openFeedModal(feedId = null) {
+      feedModal.classList.add("open");
+
+      const feed = feedId ? getFeed(feedId) : null;
+
+      document.getElementById("modalTitle").textContent =
+        feed ? "Edit website" : "Add website";
+
+      document.getElementById("editingFeedId").value = feed?.id || "";
+      document.getElementById("feedName").value = feed?.name || "";
+      document.getElementById("feedUrl").value = feed?.url || "";
+      document.getElementById("siteUrl").value = feed?.siteUrl || "";
+
+      document.getElementById("feedName").focus();
+    }
+
+    function closeFeedModal() {
+      feedModal.classList.remove("open");
+      feedForm.reset();
+      document.getElementById("editingFeedId").value = "";
+    }
+
+    async function fetchFeed(feed) {
+      /*
+        Browsers block many RSS feeds because of CORS.
+
+        This public CORS proxy makes the single-file version work without
+        a backend. For production, replace this with your own server-side
+        RSS proxy.
+      */
+
+      const proxyUrl =
+        "https://api.allorigins.win/raw?url=" +
+        encodeURIComponent(feed.url);
+
+      const response = await fetch(proxyUrl, {
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(`Could not load ${feed.name}`);
+      }
+
+      const xmlText = await response.text();
+      const xml = new DOMParser().parseFromString(xmlText, "text/xml");
+
+      if (xml.querySelector("parsererror")) {
+        throw new Error(`Invalid RSS response from ${feed.name}`);
+      }
+
+      const itemNodes = [
+        ...xml.querySelectorAll("item"),
+        ...xml.querySelectorAll("entry")
+      ];
+
+      return itemNodes.map((item, index) => {
+        const getText = selector => {
+          const element = item.querySelector(selector);
+          return element?.textContent?.trim() || "";
+        };
+
+        const linkElement =
+          item.querySelector("link[href]") ||
+          item.querySelector("link");
+
+        const link =
+          linkElement?.getAttribute("href") ||
+          linkElement?.textContent?.trim() ||
+          "";
+
+        const title = getText("title");
+        const description =
+          getText("description") ||
+          getText("summary") ||
+          getText("content");
+
+        const guid =
+          getText("guid") ||
+          getText("id") ||
+          link ||
+          `${feed.id}-${index}`;
+
+        const date =
+          getText("pubDate") ||
+          getText("published") ||
+          getText("updated") ||
+          new Date().toISOString();
+
+        const author =
+          getText("dc\\:creator") ||
+          getText("creator") ||
+          getText("author") ||
+          "";
+
+        return {
+          id: `${feed.id}-${btoa(unescape(encodeURIComponent(guid)))
+            .replaceAll("/", "_")
+            .replaceAll("=", "")
+            .slice(0, 80)}`,
+          guid,
+          feedId: feed.id,
+          title,
+          url: link,
+          description,
+          author,
+          publishedAt: date,
+          read: false,
+          pinned: false,
+          hidden: false
+        };
+      }).filter(article => article.title && article.url);
+    }
+
+    async function refreshFeeds() {
+      const enabledFeeds = feeds.filter(feed => feed.enabled);
+
+      if (!enabledFeeds.length) {
+        setStatus("No enabled websites.", true);
+        return;
+      }
+
+      refreshButton.disabled = true;
+      refreshButton.textContent = "Refreshing…";
+      setStatus("Loading RSS feeds…");
+
+      let successful = 0;
+      let failed = 0;
+
+      for (const feed of enabledFeeds) {
+        try {
+          const fetchedArticles = await fetchFeed(feed);
+
+          for (const incoming of fetchedArticles) {
+            const existing = articles.find(article =>
+              article.feedId === incoming.feedId &&
+              (
+                article.guid === incoming.guid ||
+                article.url === incoming.url
+              )
+            );
+
+            if (existing) {
+              existing.title = incoming.title;
+              existing.description = incoming.description;
+              existing.author = incoming.author;
+              existing.publishedAt = incoming.publishedAt;
+              existing.url = incoming.url;
+            } else {
+              articles.push(incoming);
+            }
+          }
+
+          successful++;
+        } catch (error) {
+          console.error(error);
+          failed++;
+        }
+      }
+
+      save(STORAGE_KEYS.articles, articles);
+
+      refreshButton.disabled = false;
+      refreshButton.textContent = "Refresh";
+
+      if (failed) {
+        setStatus(`${successful} loaded, ${failed} failed.`);
+      } else {
+        setStatus(`${successful} website${successful === 1 ? "" : "s"} loaded.`);
+      }
+
+      render();
+    }
+
+    feedForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const editingId = document.getElementById("editingFeedId").value;
+      const name = document.getElementById("feedName").value.trim();
+      const url = document.getElementById("feedUrl").value.trim();
+      const siteUrl = document.getElementById("siteUrl").value.trim();
+
+      if (editingId) {
+        const feed = getFeed(editingId);
+
+        if (feed) {
+          feed.name = name;
+          feed.url = url;
+          feed.siteUrl = siteUrl;
+        }
+      } else {
+        const highestPosition = feeds.reduce(
+          (max, feed) => Math.max(max, feed.position),
+          -1
+        );
+
+        feeds.push({
+          id: crypto.randomUUID(),
+          name,
+          url,
+          siteUrl,
+          enabled: true,
+          position: highestPosition + 1
+        });
+      }
+
+      save(STORAGE_KEYS.feeds, feeds);
+      closeFeedModal();
+      render();
+    });
+
+    document.getElementById("addFeedButton").addEventListener("click", () => {
+      openFeedModal();
+    });
+
+    document.getElementById("closeModalButton").addEventListener(
+      "click",
+      closeFeedModal
+    );
+
+    document.getElementById("cancelModalButton").addEventListener(
+      "click",
+      closeFeedModal
+    );
+
+    feedModal.addEventListener("click", event => {
+      if (event.target === feedModal) {
+        closeFeedModal();
+      }
+    });
+
+    refreshButton.addEventListener("click", refreshFeeds);
+
+    unreadButton.addEventListener("click", () => {
+      settings.unreadOnly = !settings.unreadOnly;
+      save(STORAGE_KEYS.settings, settings);
+      render();
+    });
+
+    sortSelect.addEventListener("change", event => {
+      settings.sort = event.target.value;
+      save(STORAGE_KEYS.settings, settings);
+      render();
+    });
+
+    searchInput.addEventListener("input", event => {
+      settings.search = event.target.value;
+      save(STORAGE_KEYS.settings, settings);
+      render();
+    });
+
+    render();
+
+    // Load feeds automatically on the first visit.
+    if (!articles.length) {
+      refreshFeeds();
+    }
+  </script>
+</body>
+</html>
