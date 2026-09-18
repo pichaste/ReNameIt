@@ -361,7 +361,8 @@ function renderArticles() {
   }
 
   articlesContainer.innerHTML = visible.map(a => {
-    const text = stripHtml(a.description || "");
+    // Descriptions are already converted to plain text in fetchFeed().
+const text = a.description || "";
     const id = escapeHtml(a.id);
     return `
       <article class="article ${a.read ? "" : "unread"} ${a.pinned ? "pinned" : ""}">
@@ -396,7 +397,7 @@ function renderDetails() {
     <div class="detail-meta">${escapeHtml(getFeedName(a.feedId))}<br />${formatDate(a.publishedAt)}
       ${a.author ? `<br />${escapeHtml(a.author)}` : ""}</div>
     <h3 class="detail-title">${escapeHtml(a.title)}</h3>
-    <p class="detail-description">${escapeHtml(stripHtml(a.description || "No description available."))}</p>
+    <p class="detail-description">${escapeHtml(a.description || "No description available.")}</p>
     <br />
     <a class="button primary" href="${escapeHtml(absUrl(a.url) || "#")}" target="_blank" rel="noopener noreferrer">Open original article</a>`;
 }
@@ -416,19 +417,35 @@ const PROXIES = [
   u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u)
 ];
 
-// Starts with the first proxy; backups only start if it is slow or failing (1s and 2s later)
-function fetchText(url, timeout = 8000) {
+// Uses quick fallback proxies and stops waiting after five seconds.
+function fetchText(url, timeout = 5000) {
   let settled = false;
+
   return Promise.any(PROXIES.map(async (makeUrl, i) => {
-    if (i) await new Promise(r => setTimeout(r, i * 1000));
+    // Start fallback proxies sooner than before.
+    if (i) await new Promise(resolve => setTimeout(resolve, i * 500));
+
     if (settled) throw new Error("Skipped");
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
+
     try {
-      const res = await fetch(makeUrl(url), { signal: controller.signal });
-      if (!res.ok) throw new Error(res.status);
-      const text = await res.text();
-      if (!text.trim()) throw new Error("Empty response");
+      const response = await fetch(makeUrl(url), {
+        signal: controller.signal,
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const text = await response.text();
+
+      if (!text.trim()) {
+        throw new Error("Empty response");
+      }
+
       settled = true;
       return text;
     } finally {
@@ -885,8 +902,14 @@ document.addEventListener("keydown", event => {
 render(); // saved articles appear instantly
 
 // Then refresh in the background if the saved articles are over 15 minutes old
-if (!articles.length || Date.now() - (settings.lastRefresh || 0) > 15 * 60 * 1000) {
-  refreshFeeds();
+const refreshIsDue =
+  !settings.lastRefresh ||
+  Date.now() - settings.lastRefresh > 15 * 60 * 1000;
+
+if (!articles.length || refreshIsDue) {
+  // Do not block the interface while feeds are loading.
+  void refreshFeeds();
+}
 }
 </script>
 </body>
