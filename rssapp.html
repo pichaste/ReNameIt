@@ -244,7 +244,7 @@ if (!feeds) {
     newFeed("404 Media", "https://www.404media.co/rss/", "https://www.404media.co/", 3),
     newFeed("KrebsOnSecurity", "https://krebsonsecurity.com/feed/", "https://krebsonsecurity.com/", 4),
     newFeed("Schneier Security", "https://www.schneier.com/feed/atom", "https://www.schneier.com/", 5),
-    newFeed("Wired Security", "hhttps://www.wired.com/feed/category/security/latest/rss", "https://www.wired.com/", 6),
+    newFeed("Wired Security", "https://www.wired.com/feed/category/security/latest/rss", "https://www.wired.com/", 6),
     newFeed("Security Week", "https://www.securityweek.com/feed", "https://www.securityweek.com/", 7)
   ];
   save(KEYS.feeds, feeds);
@@ -439,6 +439,7 @@ function fetchText(url, timeout = 8000) {
 
 async function fetchFeed(feed) {
   let xmlText;
+
   try {
     xmlText = await fetchText(feed.url);
   } catch {
@@ -446,31 +447,88 @@ async function fetchFeed(feed) {
   }
 
   const xml = new DOMParser().parseFromString(xmlText, "text/xml");
-  if (xml.querySelector("parsererror")) throw new Error(`Invalid RSS response from ${feed.name}`);
 
-  const tag = (item, name) => item.getElementsByTagName(name)[0]?.textContent?.trim() || "";
+  if (xml.querySelector("parsererror")) {
+    throw new Error(`Invalid RSS or Atom response from ${feed.name}`);
+  }
 
-  return [...xml.querySelectorAll("item, entry")].map((item, index) => {
-    const linkEl = item.querySelector("link[href]") || item.getElementsByTagName("link")[0];
-    const link = linkEl?.getAttribute("href") || linkEl?.textContent?.trim() || "";
-    const raw = tag(item, "description") || tag(item, "summary") || tag(item, "content");
-    const guid = tag(item, "guid") || tag(item, "id") || link || `${feed.id}-${index}`;
+  const firstText = (element, selectors) => {
+    for (const selector of selectors) {
+      const found = element.querySelector(selector);
+      const value = found?.textContent?.trim();
+      if (value) return value;
+    }
+    return "";
+  };
+
+  const getArticleLink = item => {
+    // Prefer Atom's normal article link over self/enclosure links.
+    const alternate = [...item.querySelectorAll("link[href]")]
+      .find(link => !link.getAttribute("rel") || link.getAttribute("rel") === "alternate");
+
+    if (alternate) {
+      return alternate.getAttribute("href") || "";
+    }
+
+    const textLink = item.querySelector("link")?.textContent?.trim();
+    return textLink || "";
+  };
+
+  const getAuthor = item => {
+    return firstText(item, [
+      "author > name",
+      "author",
+      "creator",
+      "dc\\:creator"
+    ]);
+  };
+
+  const entries = [...xml.querySelectorAll("item, entry")];
+
+  return entries.map((item, index) => {
+    const link = getArticleLink(item);
+
+    const rawContent = firstText(item, [
+      "content\\:encoded",
+      "content",
+      "description",
+      "summary"
+    ]);
+
+    const guid = firstText(item, [
+      "guid",
+      "id"
+    ]) || link || `${feed.id}-${index}`;
+
+    const title = firstText(item, ["title"]);
 
     return {
-      id: `${feed.id}-${btoa(unescape(encodeURIComponent(guid))).replaceAll("/", "_").replaceAll("=", "").slice(0, 80)}`,
+      id: `${feed.id}-${btoa(unescape(encodeURIComponent(guid)))
+        .replaceAll("/", "_")
+        .replaceAll("=", "")
+        .slice(0, 80)}`,
+
       guid,
       feedId: feed.id,
-      title: tag(item, "title"),
+      title,
       url: absUrl(link, feed.url),
-      description: stripHtml(raw).slice(0, 400),
-      content: tag(item, "content:encoded") || tag(item, "content") || raw,
-      author: tag(item, "dc:creator") || tag(item, "author"),
-      publishedAt: tag(item, "pubDate") || tag(item, "published") || tag(item, "updated") || new Date().toISOString(),
+      description: stripHtml(rawContent).slice(0, 400),
+      content: rawContent,
+      author: getAuthor(item),
+
+      publishedAt: firstText(item, [
+        "pubDate",
+        "published",
+        "updated",
+        "date",
+        "dc\\:date"
+      ]) || new Date().toISOString(),
+
       read: false,
       pinned: false,
       hidden: false
     };
-  }).filter(a => a.title && a.url);
+  }).filter(article => article.title && article.url);
 }
 
 function mergeArticles(incoming) {
