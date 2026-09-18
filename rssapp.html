@@ -133,121 +133,122 @@ body.reading .sidebar{display:none}
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
-    <div class="brand">Security Reader</div>
-    <div class="subtitle">Security and technology news</div>
-    <button class="button primary" id="addFeedButton">+ Add<span class="hide-sm"> website</span></button>
-    <button class="button manage-button" id="manageButton">Edit</button>
-    <div class="section-title">Websites</div>
-    <div class="feed-list" id="feedList"></div>
-    <div class="status" id="status"></div>
-  </aside>
+<aside class="sidebar">
+<div class="brand">Security Reader</div>
+<div class="subtitle">Security and technology news</div>
+<button class="button primary" id="addFeedButton">+ Add<span class="hide-sm"> website</span></button>
+<button class="button manage-button" id="manageButton">Edit</button>
+<div class="section-title">Websites</div>
+<div class="feed-list" id="feedList"></div>
+<div class="status" id="status"></div>
+</aside>
 
-  <main class="main">
-    <div class="toolbar">
-      <div class="toolbar-left">
-        <h1 id="pageTitle">All articles</h1>
-        <p id="articleSummary">Loading articles…</p>
-      </div>
-      <div class="toolbar-controls">
-        <input class="search" id="searchInput" type="search" placeholder="Search articles..." />
-        <select id="sortSelect">
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="source">Website order</option>
-        </select>
-        <button class="button" id="unreadButton">Unread only</button>
-        <button class="button primary" id="refreshButton">Refresh</button>
-      </div>
-    </div>
-    <section class="articles" id="articles"></section>
-    <section class="reader" id="reader"></section>
-  </main>
+<main class="main">
+<div class="toolbar">
+<div class="toolbar-left">
+<h1 id="pageTitle">All articles</h1>
+<p id="articleSummary">Loading articles…</p>
+</div>
+<div class="toolbar-controls">
+<input class="search" id="searchInput" type="search" placeholder="Search articles..." />
+<select id="sortSelect">
+<option value="newest">Newest first</option>
+<option value="oldest">Oldest first</option>
+<option value="source">Website order</option>
+</select>
+<button class="button" id="unreadButton">Unread only</button>
+<button class="button primary" id="refreshButton">Refresh</button>
+</div>
+</div>
+<section class="articles" id="articles"></section>
+<section class="reader" id="reader"></section>
+</main>
 
-  <aside class="details-panel">
-    <h2>Article details</h2>
-    <div id="details"></div>
-  </aside>
+<aside class="details-panel">
+<h2>Article details</h2>
+<div id="details"></div>
+</aside>
 </div>
 
 <div class="modal-backdrop" id="feedModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2 id="modalTitle">Add website</h2>
-      <button class="icon-button" id="closeModalButton">✕</button>
-    </div>
-    <form id="feedForm">
-      <input type="hidden" id="editingFeedId" />
-      <div class="form-group">
-        <label for="feedName">Website name</label>
-        <input id="feedName" required placeholder="Example Security Blog" />
-      </div>
-      <div class="form-group">
-        <label for="feedUrl">RSS or Atom feed URL</label>
-        <input id="feedUrl" type="url" required placeholder="https://example.com/feed.xml" />
-      </div>
-      <div class="form-group">
-        <label for="siteUrl">Website URL</label>
-        <input id="siteUrl" type="url" placeholder="https://example.com" />
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="button" id="cancelModalButton">Cancel</button>
-        <button type="submit" class="button primary">Save website</button>
-      </div>
-    </form>
-  </div>
+<div class="modal">
+<div class="modal-header">
+<h2 id="modalTitle">Add website</h2>
+<button class="icon-button" id="closeModalButton">✕</button>
+</div>
+<form id="feedForm">
+<input type="hidden" id="editingFeedId" />
+<div class="form-group">
+<label for="feedName">Website name</label>
+<input id="feedName" required placeholder="Example Security Blog" />
+</div>
+<div class="form-group">
+<label for="feedUrl">RSS or Atom feed URL</label>
+<input id="feedUrl" type="url" required placeholder="https://example.com/feed.xml" />
+</div>
+<div class="form-group">
+<label for="siteUrl">Website URL</label>
+<input id="siteUrl" type="url" placeholder="https://example.com" />
+</div>
+<div class="modal-actions">
+<button type="button" class="button" id="cancelModalButton">Cancel</button>
+<button type="submit" class="button primary">Save website</button>
+</div>
+</form>
+</div>
 </div>
 
 <script>
 const KEYS = {
-  feeds: "security-reader-feeds",
-  articles: "security-reader-articles",
-  settings: "security-reader-settings"
+feeds: "security-reader-feeds",
+articles: "security-reader-articles",
+settings: "security-reader-settings"
 };
 const $ = id => document.getElementById(id);
 
 function load(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch {
-    return fallback;
-  }
+try {
+const value = localStorage.getItem(key);
+return value ? JSON.parse(value) : fallback;
+} catch {
+return fallback;
+}
 }
 
 function save(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Storage full: drop cached article bodies and retry
-    if (key === KEYS.articles) {
-      value.forEach(a => { delete a.fullContent; delete a.content; });
-      try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-    }
-  }
+try {
+localStorage.setItem(key, JSON.stringify(value));
+} catch {
+// Storage full: drop cached article bodies and retry
+if (key === KEYS.articles) {
+value.forEach(a => { delete a.fullContent; delete a.content; });
+try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+}
 }
 
 // crypto.randomUUID only exists on HTTPS/localhost pages, so fall back when it's missing
 const uuid = () =>
-  globalThis.crypto?.randomUUID?.() ||
-  "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+globalThis.crypto?.randomUUID?.() ||
+"id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
 
 const newFeed = (name, url, siteUrl, position) =>
-  ({ id: uuid(), name, url, siteUrl, enabled: true, position });
+({ id: uuid(), name, url, siteUrl, enabled: true, position });
 
 let feeds = load(KEYS.feeds, null);
 if (!feeds) {
-  feeds = [
-    newFeed("BleepingComputer", "https://www.bleepingcomputer.com/feed/", "https://www.bleepingcomputer.com/", 0),
-    newFeed("Dark Reading", "https://www.darkreading.com/rss.xml", "https://www.darkreading.com/", 1),
-    newFeed("Ars Technica", "https://feeds.arstechnica.com/arstechnica/index", "https://arstechnica.com/", 2),
-    newFeed("404 Media", "https://www.404media.co/rss/", "https://www.404media.co/", 3),
-    newFeed("KrebsOnSecurity", "https://krebsonsecurity.com/feed/", "https://krebsonsecurity.com/", 4),
-    newFeed("Schneier Security", "https://www.schneier.com/feed/atom", "https://www.schneier.com/", 5),
+feeds = [
+newFeed("BleepingComputer", "https://www.bleepingcomputer.com/feed/", "https://www.bleepingcomputer.com/", 0),
+newFeed("Dark Reading", "https://www.darkreading.com/rss.xml", "https://www.darkreading.com/", 1),
+newFeed("Ars Technica", "https://feeds.arstechnica.com/arstechnica/index", "https://arstechnica.com/", 2),
+newFeed("404 Media", "https://www.404media.co/rss/", "https://www.404media.co/", 3),
+newFeed("KrebsOnSecurity", "https://krebsonsecurity.com/feed/", "https://krebsonsecurity.com/", 4),
+newFeed("Schneier Security", "https://www.schneier.com/feed/atom", "https://www.schneier.com/", 5),
+    newFeed("Wired Security", "hhttps://www.wired.com/feed/category/security/latest/rss", "https://www.wired.com/", 6),
     newFeed("Wired Security", "https://www.wired.com/feed/category/security/latest/rss", "https://www.wired.com/", 6),
-    newFeed("Security Week", "https://www.securityweek.com/feed", "https://www.securityweek.com/", 7)
-  ];
-  save(KEYS.feeds, feeds);
+newFeed("Security Week", "https://www.securityweek.com/feed", "https://www.securityweek.com/", 7)
+];
+save(KEYS.feeds, feeds);
 }
 
 let articles = load(KEYS.articles, []);
@@ -256,10 +257,10 @@ let selectedArticleId = null;
 let draggedFeedId = null;
 
 const feedList = $("feedList"), articlesContainer = $("articles"), detailsContainer = $("details"),
-  statusElement = $("status"), pageTitle = $("pageTitle"), articleSummary = $("articleSummary"),
-  searchInput = $("searchInput"), sortSelect = $("sortSelect"), unreadButton = $("unreadButton"),
-  refreshButton = $("refreshButton"), feedModal = $("feedModal"), feedForm = $("feedForm"),
-  reader = $("reader");
+statusElement = $("status"), pageTitle = $("pageTitle"), articleSummary = $("articleSummary"),
+searchInput = $("searchInput"), sortSelect = $("sortSelect"), unreadButton = $("unreadButton"),
+refreshButton = $("refreshButton"), feedModal = $("feedModal"), feedForm = $("feedForm"),
+reader = $("reader");
 
 searchInput.value = settings.search;
 sortSelect.value = settings.sort;
@@ -267,204 +268,189 @@ sortSelect.value = settings.sort;
 /* ---------- Helpers ---------- */
 
 function escapeHtml(value = "") {
-  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
+.replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
 // DOMParser is inert, so nothing inside the HTML (e.g. images) is downloaded
 function stripHtml(value = "") {
-  return new DOMParser().parseFromString(value, "text/html").body.textContent || "";
+return new DOMParser().parseFromString(value, "text/html").body.textContent || "";
 }
 
 function formatDate(value) {
-  const date = new Date(value);
-  if (!value || Number.isNaN(date.getTime())) return "Unknown date";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+const date = new Date(value);
+if (!value || Number.isNaN(date.getTime())) return "Unknown date";
+return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 const getFeed = id => feeds.find(f => f.id === id);
 const getFeedName = id => getFeed(id)?.name || "Unknown website";
 
 function setStatus(message, isError = false) {
-  statusElement.textContent = message;
-  statusElement.style.color = isError ? "#fca5a5" : "var(--muted)";
+statusElement.textContent = message;
+statusElement.style.color = isError ? "#fca5a5" : "var(--muted)";
 }
 
 /* ---------- Rendering ---------- */
 
 function renderFeeds() {
-  const unread = id => articles.filter(a => !a.read && !a.hidden && (!id || a.feedId === id)).length;
+const unread = id => articles.filter(a => !a.read && !a.hidden && (!id || a.feedId === id)).length;
 
-  feedList.innerHTML =
-    `<div class="feed-item ${settings.selectedFeed === "all" ? "active" : ""}" data-feed-id="all">
-      <span class="feed-name">★ All articles</span><span class="feed-count">${unread()}</span></div>` +
-    [...feeds].sort((a, b) => a.position - b.position).map(f => `
-      <div class="feed-item ${settings.selectedFeed === f.id ? "active" : ""}" draggable="true" data-feed-id="${f.id}">
-        <span class="drag-handle" title="Drag to reorder">☷</span>
-        <span class="feed-name">${escapeHtml(f.name)}</span>
-        <span class="feed-count">${unread(f.id)}</span>
-        <span class="feed-actions">
-          <button class="icon-button move-feed" data-dir="-1" title="Move left">‹</button>
-          <button class="icon-button move-feed" data-dir="1" title="Move right">›</button>
-          <button class="icon-button edit-feed" title="Edit">✎</button>
-          <button class="icon-button delete-feed" title="Delete">×</button>
-        </span>
-      </div>`).join("");
+feedList.innerHTML =
+`<div class="feed-item ${settings.selectedFeed === "all" ? "active" : ""}" data-feed-id="all">
+     <span class="feed-name">★ All articles</span><span class="feed-count">${unread()}</span></div>` +
+[...feeds].sort((a, b) => a.position - b.position).map(f => `
+     <div class="feed-item ${settings.selectedFeed === f.id ? "active" : ""}" draggable="true" data-feed-id="${f.id}">
+       <span class="drag-handle" title="Drag to reorder">☷</span>
+       <span class="feed-name">${escapeHtml(f.name)}</span>
+       <span class="feed-count">${unread(f.id)}</span>
+       <span class="feed-actions">
+         <button class="icon-button move-feed" data-dir="-1" title="Move left">‹</button>
+         <button class="icon-button move-feed" data-dir="1" title="Move right">›</button>
+         <button class="icon-button edit-feed" title="Edit">✎</button>
+         <button class="icon-button delete-feed" title="Delete">×</button>
+       </span>
+     </div>`).join("");
 }
 
 function moveFeed(id, dir) {
-  const sorted = [...feeds].sort((a, b) => a.position - b.position);
-  const i = sorted.findIndex(f => f.id === id), j = i + dir;
-  if (i < 0 || j < 0 || j >= sorted.length) return;
-  [sorted[i].position, sorted[j].position] = [sorted[j].position, sorted[i].position];
-  save(KEYS.feeds, feeds);
-  render();
+const sorted = [...feeds].sort((a, b) => a.position - b.position);
+const i = sorted.findIndex(f => f.id === id), j = i + dir;
+if (i < 0 || j < 0 || j >= sorted.length) return;
+[sorted[i].position, sorted[j].position] = [sorted[j].position, sorted[i].position];
+save(KEYS.feeds, feeds);
+render();
 }
 
 function filteredArticles() {
-  const search = settings.search.trim().toLowerCase();
+const search = settings.search.trim().toLowerCase();
 
-  const result = articles.filter(a => {
-    if (a.hidden) return false;
-    if (settings.selectedFeed !== "all" && a.feedId !== settings.selectedFeed) return false;
-    if (settings.unreadOnly && a.read) return false;
-    return !search ||
-      [a.title, a.description, getFeedName(a.feedId)].join(" ").toLowerCase().includes(search);
-  });
+const result = articles.filter(a => {
+if (a.hidden) return false;
+if (settings.selectedFeed !== "all" && a.feedId !== settings.selectedFeed) return false;
+if (settings.unreadOnly && a.read) return false;
+return !search ||
+[a.title, a.description, getFeedName(a.feedId)].join(" ").toLowerCase().includes(search);
+});
 
-  const time = a => new Date(a.publishedAt || 0);
+const time = a => new Date(a.publishedAt || 0);
 
-  if (settings.sort === "oldest") {
-    result.sort((a, b) => time(a) - time(b));
-  } else if (settings.sort === "source") {
-    result.sort((a, b) => {
-      const pa = getFeed(a.feedId)?.position ?? 999, pb = getFeed(b.feedId)?.position ?? 999;
-      return pa !== pb ? pa - pb : time(b) - time(a);
-    });
-  } else {
-    result.sort((a, b) => (a.pinned !== b.pinned ? (a.pinned ? -1 : 1) : time(b) - time(a)));
-  }
-  return result;
+if (settings.sort === "oldest") {
+result.sort((a, b) => time(a) - time(b));
+} else if (settings.sort === "source") {
+result.sort((a, b) => {
+const pa = getFeed(a.feedId)?.position ?? 999, pb = getFeed(b.feedId)?.position ?? 999;
+return pa !== pb ? pa - pb : time(b) - time(a);
+});
+} else {
+result.sort((a, b) => (a.pinned !== b.pinned ? (a.pinned ? -1 : 1) : time(b) - time(a)));
+}
+return result;
 }
 
 function renderArticles() {
-  const visible = filteredArticles();
-  const selectedFeed = settings.selectedFeed === "all" ? null : getFeed(settings.selectedFeed);
+const visible = filteredArticles();
+const selectedFeed = settings.selectedFeed === "all" ? null : getFeed(settings.selectedFeed);
 
-  pageTitle.textContent = selectedFeed ? selectedFeed.name : "All articles";
-  articleSummary.textContent = `${visible.length} article${visible.length === 1 ? "" : "s"} displayed`;
+pageTitle.textContent = selectedFeed ? selectedFeed.name : "All articles";
+articleSummary.textContent = `${visible.length} article${visible.length === 1 ? "" : "s"} displayed`;
 
-  if (!visible.length) {
-    articlesContainer.innerHTML =
-      `<div class="empty">No articles match the current filters.<br /><br />Try refreshing the feeds or changing your filters.</div>`;
-    return;
-  }
+if (!visible.length) {
+articlesContainer.innerHTML =
+`<div class="empty">No articles match the current filters.<br /><br />Try refreshing the feeds or changing your filters.</div>`;
+return;
+}
 
-  articlesContainer.innerHTML = visible.map(a => {
-    // Descriptions are already converted to plain text in fetchFeed().
-const text = a.description || "";
-    const id = escapeHtml(a.id);
-    return `
-      <article class="article ${a.read ? "" : "unread"} ${a.pinned ? "pinned" : ""}">
-        <div class="article-top">
-          <span class="article-source">${escapeHtml(getFeedName(a.feedId))}</span>
-          <span>${a.pinned ? "★ Pinned · " : ""}${formatDate(a.publishedAt)}</span>
-        </div>
-        <h2 class="article-title" data-action="open" data-id="${id}">${escapeHtml(a.title)}</h2>
-        <p class="article-description" data-action="open" data-id="${id}">${escapeHtml(text.length > 280 ? text.slice(0, 280) + "…" : text)}</p>
-        <div class="article-bottom">
-          <span class="article-date">${a.author ? escapeHtml(a.author) : ""}</span>
-          <div class="article-buttons">
-            <button class="button small" data-action="open" data-id="${id}">Read</button>
-            <button class="button small" data-action="pin" data-id="${id}">${a.pinned ? "Unpin" : "Pin"}</button>
-            <button class="button small" data-action="read" data-id="${id}">${a.read ? "Unread" : "Mark read"}</button>
-            <button class="button small danger" data-action="hide" data-id="${id}">Hide</button>
-          </div>
-        </div>
-      </article>`;
-  }).join("");
+articlesContainer.innerHTML = visible.map(a => {
+const text = stripHtml(a.description || "");
+const id = escapeHtml(a.id);
+return `
+     <article class="article ${a.read ? "" : "unread"} ${a.pinned ? "pinned" : ""}">
+       <div class="article-top">
+         <span class="article-source">${escapeHtml(getFeedName(a.feedId))}</span>
+         <span>${a.pinned ? "★ Pinned · " : ""}${formatDate(a.publishedAt)}</span>
+       </div>
+       <h2 class="article-title" data-action="open" data-id="${id}">${escapeHtml(a.title)}</h2>
+       <p class="article-description" data-action="open" data-id="${id}">${escapeHtml(text.length > 280 ? text.slice(0, 280) + "…" : text)}</p>
+       <div class="article-bottom">
+         <span class="article-date">${a.author ? escapeHtml(a.author) : ""}</span>
+         <div class="article-buttons">
+           <button class="button small" data-action="open" data-id="${id}">Read</button>
+           <button class="button small" data-action="pin" data-id="${id}">${a.pinned ? "Unpin" : "Pin"}</button>
+           <button class="button small" data-action="read" data-id="${id}">${a.read ? "Unread" : "Mark read"}</button>
+           <button class="button small danger" data-action="hide" data-id="${id}">Hide</button>
+         </div>
+       </div>
+     </article>`;
+}).join("");
 }
 
 function renderDetails() {
-  const a = articles.find(item => item.id === selectedArticleId);
+const a = articles.find(item => item.id === selectedArticleId);
 
-  if (!a) {
-    detailsContainer.innerHTML = `<div class="details-empty">Select an article to view its details here.</div>`;
-    return;
-  }
+if (!a) {
+detailsContainer.innerHTML = `<div class="details-empty">Select an article to view its details here.</div>`;
+return;
+}
 
-  detailsContainer.innerHTML = `
-    <div class="detail-meta">${escapeHtml(getFeedName(a.feedId))}<br />${formatDate(a.publishedAt)}
-      ${a.author ? `<br />${escapeHtml(a.author)}` : ""}</div>
-    <h3 class="detail-title">${escapeHtml(a.title)}</h3>
-    <p class="detail-description">${escapeHtml(a.description || "No description available.")}</p>
-    <br />
-    <a class="button primary" href="${escapeHtml(absUrl(a.url) || "#")}" target="_blank" rel="noopener noreferrer">Open original article</a>`;
+detailsContainer.innerHTML = `
+   <div class="detail-meta">${escapeHtml(getFeedName(a.feedId))}<br />${formatDate(a.publishedAt)}
+     ${a.author ? `<br />${escapeHtml(a.author)}` : ""}</div>
+   <h3 class="detail-title">${escapeHtml(a.title)}</h3>
+   <p class="detail-description">${escapeHtml(stripHtml(a.description || "No description available."))}</p>
+   <br />
+   <a class="button primary" href="${escapeHtml(absUrl(a.url) || "#")}" target="_blank" rel="noopener noreferrer">Open original article</a>`;
 }
 
 function render() {
-  renderFeeds();
-  renderArticles();
-  renderDetails();
-  unreadButton.textContent = settings.unreadOnly ? "Showing unread" : "Unread only";
+renderFeeds();
+renderArticles();
+renderDetails();
+unreadButton.textContent = settings.unreadOnly ? "Showing unread" : "Unread only";
 }
 
 /* ---------- Networking ---------- */
 
 const PROXIES = [
-  u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
-  u => "https://corsproxy.io/?" + encodeURIComponent(u),
-  u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u)
+u => "https://api.allorigins.win/raw?url=" + encodeURIComponent(u),
+u => "https://corsproxy.io/?" + encodeURIComponent(u),
+u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u)
 ];
 
-// Uses quick fallback proxies and stops waiting after five seconds.
-function fetchText(url, timeout = 5000) {
-  let settled = false;
-
-  return Promise.any(PROXIES.map(async (makeUrl, i) => {
-    // Start fallback proxies sooner than before.
-    if (i) await new Promise(resolve => setTimeout(resolve, i * 500));
-
-    if (settled) throw new Error("Skipped");
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
-
-    try {
-      const response = await fetch(makeUrl(url), {
-        signal: controller.signal,
-        cache: "no-store"
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const text = await response.text();
-
-      if (!text.trim()) {
-        throw new Error("Empty response");
-      }
-
-      settled = true;
-      return text;
-    } finally {
-      clearTimeout(timer);
-    }
-  }));
+// Starts with the first proxy; backups only start if it is slow or failing (1s and 2s later)
+function fetchText(url, timeout = 8000) {
+let settled = false;
+return Promise.any(PROXIES.map(async (makeUrl, i) => {
+if (i) await new Promise(r => setTimeout(r, i * 1000));
+if (settled) throw new Error("Skipped");
+const controller = new AbortController();
+const timer = setTimeout(() => controller.abort(), timeout);
+try {
+const res = await fetch(makeUrl(url), { signal: controller.signal });
+if (!res.ok) throw new Error(res.status);
+const text = await res.text();
+if (!text.trim()) throw new Error("Empty response");
+settled = true;
+return text;
+} finally {
+clearTimeout(timer);
+}
+}));
 }
 
 async function fetchFeed(feed) {
-  let xmlText;
+let xmlText;
 
-  try {
-    xmlText = await fetchText(feed.url);
-  } catch {
-    throw new Error(`Could not load ${feed.name}`);
-  }
+try {
+xmlText = await fetchText(feed.url);
+} catch {
+throw new Error(`Could not load ${feed.name}`);
+}
 
-  const xml = new DOMParser().parseFromString(xmlText, "text/xml");
+const xml = new DOMParser().parseFromString(xmlText, "text/xml");
+  if (xml.querySelector("parsererror")) throw new Error(`Invalid RSS response from ${feed.name}`);
 
+  const tag = (item, name) => item.getElementsByTagName(name)[0]?.textContent?.trim() || "";
   if (xml.querySelector("parsererror")) {
     throw new Error(`Invalid RSS or Atom response from ${feed.name}`);
   }
@@ -505,6 +491,11 @@ async function fetchFeed(feed) {
   return entries.map((item, index) => {
     const link = getArticleLink(item);
 
+  return [...xml.querySelectorAll("item, entry")].map((item, index) => {
+    const linkEl = item.querySelector("link[href]") || item.getElementsByTagName("link")[0];
+    const link = linkEl?.getAttribute("href") || linkEl?.textContent?.trim() || "";
+    const raw = tag(item, "description") || tag(item, "summary") || tag(item, "content");
+    const guid = tag(item, "guid") || tag(item, "id") || link || `${feed.id}-${index}`;
     const rawContent = firstText(item, [
       "content\\:encoded",
       "content",
@@ -519,16 +510,22 @@ async function fetchFeed(feed) {
 
     const title = firstText(item, ["title"]);
 
-    return {
+return {
+      id: `${feed.id}-${btoa(unescape(encodeURIComponent(guid))).replaceAll("/", "_").replaceAll("=", "").slice(0, 80)}`,
       id: `${feed.id}-${btoa(unescape(encodeURIComponent(guid)))
         .replaceAll("/", "_")
         .replaceAll("=", "")
         .slice(0, 80)}`,
 
-      guid,
-      feedId: feed.id,
+guid,
+feedId: feed.id,
+      title: tag(item, "title"),
       title,
-      url: absUrl(link, feed.url),
+url: absUrl(link, feed.url),
+      description: stripHtml(raw).slice(0, 400),
+      content: tag(item, "content:encoded") || tag(item, "content") || raw,
+      author: tag(item, "dc:creator") || tag(item, "author"),
+      publishedAt: tag(item, "pubDate") || tag(item, "published") || tag(item, "updated") || new Date().toISOString(),
       description: stripHtml(rawContent).slice(0, 400),
       content: rawContent,
       author: getAuthor(item),
@@ -541,198 +538,199 @@ async function fetchFeed(feed) {
         "dc\\:date"
       ]) || new Date().toISOString(),
 
-      read: false,
-      pinned: false,
-      hidden: false
-    };
+read: false,
+pinned: false,
+hidden: false
+};
+  }).filter(a => a.title && a.url);
   }).filter(article => article.title && article.url);
 }
 
 function mergeArticles(incoming) {
-  const index = new Map();
-  articles.forEach(a => {
-    index.set(a.feedId + "|" + a.guid, a);
-    index.set(a.feedId + "|" + a.url, a);
-  });
+const index = new Map();
+articles.forEach(a => {
+index.set(a.feedId + "|" + a.guid, a);
+index.set(a.feedId + "|" + a.url, a);
+});
 
-  for (const inc of incoming) {
-    const existing = index.get(inc.feedId + "|" + inc.guid) || index.get(inc.feedId + "|" + inc.url);
-    if (existing) {
-      Object.assign(existing, {
-        title: inc.title, description: inc.description, content: inc.content,
-        author: inc.author, publishedAt: inc.publishedAt, url: inc.url
-      });
-    } else {
-      articles.push(inc);
-    }
-  }
+for (const inc of incoming) {
+const existing = index.get(inc.feedId + "|" + inc.guid) || index.get(inc.feedId + "|" + inc.url);
+if (existing) {
+Object.assign(existing, {
+title: inc.title, description: inc.description, content: inc.content,
+author: inc.author, publishedAt: inc.publishedAt, url: inc.url
+});
+} else {
+articles.push(inc);
+}
+}
 }
 
 function pruneArticles(perFeed = 60) {
-  const counts = {};
-  articles.sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
-  articles = articles.filter(a => a.pinned || (counts[a.feedId] = (counts[a.feedId] || 0) + 1) <= perFeed);
+const counts = {};
+articles.sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+articles = articles.filter(a => a.pinned || (counts[a.feedId] = (counts[a.feedId] || 0) + 1) <= perFeed);
 }
 
 async function refreshFeeds() {
-  const enabled = feeds.filter(f => f.enabled);
+const enabled = feeds.filter(f => f.enabled);
 
-  if (!enabled.length) {
-    setStatus("No enabled websites.", true);
-    return;
-  }
+if (!enabled.length) {
+setStatus("No enabled websites.", true);
+return;
+}
 
-  refreshButton.disabled = true;
-  refreshButton.textContent = "Refreshing…";
-  setStatus(`Loaded 0 of ${enabled.length}…`);
+refreshButton.disabled = true;
+refreshButton.textContent = "Refreshing…";
+setStatus(`Loaded 0 of ${enabled.length}…`);
 
-  let done = 0;
-  const failedNames = [];
+let done = 0;
+const failedNames = [];
 
-  // All feeds load in parallel; each appears as soon as it arrives
-  await Promise.all(enabled.map(async feed => {
-    try {
-      mergeArticles(await fetchFeed(feed));
-      render();
-    } catch (error) {
-      console.warn(error.message);
-      failedNames.push(feed.name);
-    }
-    setStatus(`Loaded ${++done} of ${enabled.length}…`);
-  }));
+// All feeds load in parallel; each appears as soon as it arrives
+await Promise.all(enabled.map(async feed => {
+try {
+mergeArticles(await fetchFeed(feed));
+render();
+} catch (error) {
+console.warn(error.message);
+failedNames.push(feed.name);
+}
+setStatus(`Loaded ${++done} of ${enabled.length}…`);
+}));
 
-  pruneArticles();
-  save(KEYS.articles, articles);
-  settings.lastRefresh = Date.now();
-  save(KEYS.settings, settings);
+pruneArticles();
+save(KEYS.articles, articles);
+settings.lastRefresh = Date.now();
+save(KEYS.settings, settings);
 
-  refreshButton.disabled = false;
-  refreshButton.textContent = "Refresh";
-  const failed = failedNames.length;
-  setStatus(failed
-    ? `${enabled.length - failed} loaded, ${failed} failed: ${failedNames.join(", ")}.`
-    : `${enabled.length} website${enabled.length === 1 ? "" : "s"} loaded.`);
-  render();
+refreshButton.disabled = false;
+refreshButton.textContent = "Refresh";
+const failed = failedNames.length;
+setStatus(failed
+? `${enabled.length - failed} loaded, ${failed} failed: ${failedNames.join(", ")}.`
+: `${enabled.length} website${enabled.length === 1 ? "" : "s"} loaded.`);
+render();
 }
 
 /* ---------- In-app reader (text only, no images) ---------- */
 
 const ALLOWED_TAGS = new Set(
-  "P BR A UL OL LI H1 H2 H3 H4 H5 H6 BLOCKQUOTE PRE CODE EM STRONG B I TABLE THEAD TBODY TR TH TD HR SPAN DIV SUB SUP".split(" ")
+"P BR A UL OL LI H1 H2 H3 H4 H5 H6 BLOCKQUOTE PRE CODE EM STRONG B I TABLE THEAD TBODY TR TH TD HR SPAN DIV SUB SUP".split(" ")
 );
 
 function absUrl(value, base) {
-  try {
-    const url = new URL(value, base);
-    return /^https?:$/.test(url.protocol) ? url.href : "";
-  } catch {
-    return "";
-  }
+try {
+const url = new URL(value, base);
+return /^https?:$/.test(url.protocol) ? url.href : "";
+} catch {
+return "";
+}
 }
 
 // Allow-list sanitizer: keeps basic formatting only. Images, media, scripts and styles are removed.
 function sanitize(html, baseUrl) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  doc.querySelectorAll(
-    "script,style,iframe,object,embed,form,noscript,nav,footer,aside,svg,button,input,select,textarea,img,picture,source,figure,video,audio,canvas"
-  ).forEach(n => n.remove());
+const doc = new DOMParser().parseFromString(html, "text/html");
+doc.querySelectorAll(
+"script,style,iframe,object,embed,form,noscript,nav,footer,aside,svg,button,input,select,textarea,img,picture,source,figure,video,audio,canvas"
+).forEach(n => n.remove());
 
-  doc.body.querySelectorAll("*").forEach(el => {
-    if (!ALLOWED_TAGS.has(el.tagName)) return el.replaceWith(...el.childNodes);
+doc.body.querySelectorAll("*").forEach(el => {
+if (!ALLOWED_TAGS.has(el.tagName)) return el.replaceWith(...el.childNodes);
 
-    const href = el.tagName === "A" ? absUrl(el.getAttribute("href") || "", baseUrl) : "";
-    [...el.attributes].forEach(attr => el.removeAttribute(attr.name));
+const href = el.tagName === "A" ? absUrl(el.getAttribute("href") || "", baseUrl) : "";
+[...el.attributes].forEach(attr => el.removeAttribute(attr.name));
 
-    if (el.tagName === "A") {
-      if (!href) return el.replaceWith(...el.childNodes);
-      el.href = href;
-      el.target = "_blank";
-      el.rel = "noopener noreferrer";
-    }
-  });
+if (el.tagName === "A") {
+if (!href) return el.replaceWith(...el.childNodes);
+el.href = href;
+el.target = "_blank";
+el.rel = "noopener noreferrer";
+}
+});
 
-  return doc.body.innerHTML;
+return doc.body.innerHTML;
 }
 
 // Picks the block of the page that holds the most paragraph text
 function extractArticle(html, url) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  const score = el => [...el.querySelectorAll("p")].reduce((n, p) => n + p.textContent.length, 0);
-  let best = doc.body, bestScore = 0;
+const doc = new DOMParser().parseFromString(html, "text/html");
+const score = el => [...el.querySelectorAll("p")].reduce((n, p) => n + p.textContent.length, 0);
+let best = doc.body, bestScore = 0;
 
-  doc.querySelectorAll("article, [itemprop='articleBody'], .entry-content, .post-content, .article-body, main")
-    .forEach(el => {
-      const s = score(el);
-      if (s > 0 && s >= bestScore) { best = el; bestScore = s; }
-    });
+doc.querySelectorAll("article, [itemprop='articleBody'], .entry-content, .post-content, .article-body, main")
+.forEach(el => {
+const s = score(el);
+if (s > 0 && s >= bestScore) { best = el; bestScore = s; }
+});
 
-  return sanitize(best.innerHTML, url);
+return sanitize(best.innerHTML, url);
 }
 
 let listScroll = 0;
 
 async function openReader(id) {
-  const a = articles.find(item => item.id === id);
-  if (!a) return;
+const a = articles.find(item => item.id === id);
+if (!a) return;
 
-  listScroll = window.scrollY;
-  try { if (!history.state?.reader) history.pushState({ reader: 1 }, ""); } catch {}
+listScroll = window.scrollY;
+try { if (!history.state?.reader) history.pushState({ reader: 1 }, ""); } catch {}
 
-  a.read = true;
-  selectedArticleId = id;
-  save(KEYS.articles, articles);
+a.read = true;
+selectedArticleId = id;
+save(KEYS.articles, articles);
 
-  reader.innerHTML = `
-    <div class="reader-nav">
-      <button class="button" id="readerBack">← Back</button>
-      <a class="button" href="${escapeHtml(absUrl(a.url) || "#")}" target="_blank" rel="noopener noreferrer">Original ↗</a>
-    </div>
-    <h1>${escapeHtml(a.title)}</h1>
-    <div class="reader-meta">${escapeHtml(getFeedName(a.feedId))} · ${formatDate(a.publishedAt)}${a.author ? " · " + escapeHtml(a.author) : ""}</div>
-    <div class="reader-body" id="readerBody"><p class="reader-note">Loading article…</p></div>`;
-  reader.classList.add("open");
-  document.body.classList.add("reading");
-  window.scrollTo(0, 0);
-  document.querySelector(".main").scrollTop = 0;
-  $("readerBack").addEventListener("click", backFromReader);
-  render();
+reader.innerHTML = `
+   <div class="reader-nav">
+     <button class="button" id="readerBack">← Back</button>
+     <a class="button" href="${escapeHtml(absUrl(a.url) || "#")}" target="_blank" rel="noopener noreferrer">Original ↗</a>
+   </div>
+   <h1>${escapeHtml(a.title)}</h1>
+   <div class="reader-meta">${escapeHtml(getFeedName(a.feedId))} · ${formatDate(a.publishedAt)}${a.author ? " · " + escapeHtml(a.author) : ""}</div>
+   <div class="reader-body" id="readerBody"><p class="reader-note">Loading article…</p></div>`;
+reader.classList.add("open");
+document.body.classList.add("reading");
+window.scrollTo(0, 0);
+document.querySelector(".main").scrollTop = 0;
+$("readerBack").addEventListener("click", backFromReader);
+render();
 
-  const body = $("readerBody");
-  const textLength = html => stripHtml(html || "").length;
-  let html = "", note = "";
+const body = $("readerBody");
+const textLength = html => stripHtml(html || "").length;
+let html = "", note = "";
 
-  try {
-    if (textLength(a.content) >= 800) {
-      html = sanitize(a.content, a.url);                      // feed already contains the full text
-    } else if (a.fullContent) {
-      html = sanitize(a.fullContent, a.url);                  // fetched earlier
-    } else {
-      html = extractArticle(await fetchText(a.url, 12000), a.url);
-      if (textLength(html) < 200) throw new Error("Not enough text");
-      a.fullContent = html;
-      save(KEYS.articles, articles);
-    }
-  } catch (error) {
-    console.error(error);
-    html = sanitize(a.content || a.description || "", a.url);
-    note = `<p class="reader-note">The full text couldn't be loaded, so this is the feed's summary.</p>`;
-  }
+try {
+if (textLength(a.content) >= 800) {
+html = sanitize(a.content, a.url);                      // feed already contains the full text
+} else if (a.fullContent) {
+html = sanitize(a.fullContent, a.url);                  // fetched earlier
+} else {
+html = extractArticle(await fetchText(a.url, 12000), a.url);
+if (textLength(html) < 200) throw new Error("Not enough text");
+a.fullContent = html;
+save(KEYS.articles, articles);
+}
+} catch (error) {
+console.error(error);
+html = sanitize(a.content || a.description || "", a.url);
+note = `<p class="reader-note">The full text couldn't be loaded, so this is the feed's summary.</p>`;
+}
 
-  if (body.isConnected) body.innerHTML = note + (html || "<p>No content available.</p>");
+if (body.isConnected) body.innerHTML = note + (html || "<p>No content available.</p>");
 }
 
 function closeReader() {
-  const wasOpen = reader.classList.contains("open");
-  document.body.classList.remove("reading");
-  reader.classList.remove("open");
-  reader.innerHTML = "";
-  if (wasOpen) window.scrollTo(0, listScroll);
+const wasOpen = reader.classList.contains("open");
+document.body.classList.remove("reading");
+reader.classList.remove("open");
+reader.innerHTML = "";
+if (wasOpen) window.scrollTo(0, listScroll);
 }
 
 // Goes through browser history so the phone's back button/swipe closes the reader
 function backFromReader() {
-  if (history.state?.reader) history.back();
-  else closeReader();
+if (history.state?.reader) history.back();
+else closeReader();
 }
 
 window.addEventListener("popstate", closeReader);
@@ -740,121 +738,121 @@ window.addEventListener("popstate", closeReader);
 /* ---------- Feed modal ---------- */
 
 function openFeedModal(feedId = null) {
-  const feed = feedId ? getFeed(feedId) : null;
-  feedModal.classList.add("open");
-  $("modalTitle").textContent = feed ? "Edit website" : "Add website";
-  $("editingFeedId").value = feed?.id || "";
-  $("feedName").value = feed?.name || "";
-  $("feedUrl").value = feed?.url || "";
-  $("siteUrl").value = feed?.siteUrl || "";
-  $("feedName").focus();
+const feed = feedId ? getFeed(feedId) : null;
+feedModal.classList.add("open");
+$("modalTitle").textContent = feed ? "Edit website" : "Add website";
+$("editingFeedId").value = feed?.id || "";
+$("feedName").value = feed?.name || "";
+$("feedUrl").value = feed?.url || "";
+$("siteUrl").value = feed?.siteUrl || "";
+$("feedName").focus();
 }
 
 function closeFeedModal() {
-  feedModal.classList.remove("open");
-  feedForm.reset();
-  $("editingFeedId").value = "";
+feedModal.classList.remove("open");
+feedForm.reset();
+$("editingFeedId").value = "";
 }
 
 feedForm.addEventListener("submit", event => {
-  event.preventDefault();
+event.preventDefault();
 
-  const editingId = $("editingFeedId").value;
-  const name = $("feedName").value.trim();
-  const url = $("feedUrl").value.trim();
-  const siteUrl = $("siteUrl").value.trim();
+const editingId = $("editingFeedId").value;
+const name = $("feedName").value.trim();
+const url = $("feedUrl").value.trim();
+const siteUrl = $("siteUrl").value.trim();
 
-  if (editingId) {
-    const feed = getFeed(editingId);
-    if (feed) Object.assign(feed, { name, url, siteUrl });
-  } else {
-    const next = feeds.reduce((max, f) => Math.max(max, f.position), -1) + 1;
-    feeds.push({ id: uuid(), name, url, siteUrl, enabled: true, position: next });
-  }
+if (editingId) {
+const feed = getFeed(editingId);
+if (feed) Object.assign(feed, { name, url, siteUrl });
+} else {
+const next = feeds.reduce((max, f) => Math.max(max, f.position), -1) + 1;
+feeds.push({ id: uuid(), name, url, siteUrl, enabled: true, position: next });
+}
 
-  save(KEYS.feeds, feeds);
-  closeFeedModal();
-  render();
+save(KEYS.feeds, feeds);
+closeFeedModal();
+render();
 });
 
 /* ---------- Events ---------- */
 
 feedList.addEventListener("click", event => {
-  const item = event.target.closest(".feed-item");
-  if (!item) return;
-  const id = item.dataset.feedId;
+const item = event.target.closest(".feed-item");
+if (!item) return;
+const id = item.dataset.feedId;
 
-  const mover = event.target.closest(".move-feed");
-  if (mover) return moveFeed(id, Number(mover.dataset.dir));
+const mover = event.target.closest(".move-feed");
+if (mover) return moveFeed(id, Number(mover.dataset.dir));
 
-  if (event.target.closest(".edit-feed")) return openFeedModal(id);
+if (event.target.closest(".edit-feed")) return openFeedModal(id);
 
-  if (event.target.closest(".delete-feed")) {
-    const feed = getFeed(id);
-    if (!feed || !confirm(`Remove ${feed.name} and its saved articles?`)) return;
+if (event.target.closest(".delete-feed")) {
+const feed = getFeed(id);
+if (!feed || !confirm(`Remove ${feed.name} and its saved articles?`)) return;
 
-    feeds = feeds.filter(f => f.id !== id);
-    articles = articles.filter(a => a.feedId !== id);
-    if (settings.selectedFeed === id) settings.selectedFeed = "all";
+feeds = feeds.filter(f => f.id !== id);
+articles = articles.filter(a => a.feedId !== id);
+if (settings.selectedFeed === id) settings.selectedFeed = "all";
 
-    save(KEYS.feeds, feeds);
-    save(KEYS.articles, articles);
-    save(KEYS.settings, settings);
-    return render();
-  }
+save(KEYS.feeds, feeds);
+save(KEYS.articles, articles);
+save(KEYS.settings, settings);
+return render();
+}
 
-  settings.selectedFeed = id;
-  save(KEYS.settings, settings);
-  listScroll = 0;
-  backFromReader();
-  render();
+settings.selectedFeed = id;
+save(KEYS.settings, settings);
+listScroll = 0;
+backFromReader();
+render();
 });
 
 feedList.addEventListener("dragstart", event => {
-  const item = event.target.closest(".feed-item");
-  if (!item) return;
-  draggedFeedId = item.dataset.feedId;
-  item.classList.add("dragging");
+const item = event.target.closest(".feed-item");
+if (!item) return;
+draggedFeedId = item.dataset.feedId;
+item.classList.add("dragging");
 });
 
 feedList.addEventListener("dragend", event => {
-  event.target.closest?.(".feed-item")?.classList.remove("dragging");
+event.target.closest?.(".feed-item")?.classList.remove("dragging");
 });
 
 feedList.addEventListener("dragover", event => event.preventDefault());
 
 feedList.addEventListener("drop", event => {
-  event.preventDefault();
-  const item = event.target.closest(".feed-item");
-  if (!item || !draggedFeedId) return;
+event.preventDefault();
+const item = event.target.closest(".feed-item");
+if (!item || !draggedFeedId) return;
 
-  const targetId = item.dataset.feedId;
-  if (targetId === "all" || targetId === draggedFeedId) return;
+const targetId = item.dataset.feedId;
+if (targetId === "all" || targetId === draggedFeedId) return;
 
-  const dragged = getFeed(draggedFeedId), target = getFeed(targetId);
-  if (!dragged || !target) return;
+const dragged = getFeed(draggedFeedId), target = getFeed(targetId);
+if (!dragged || !target) return;
 
-  [dragged.position, target.position] = [target.position, dragged.position];
-  save(KEYS.feeds, feeds);
-  render();
+[dragged.position, target.position] = [target.position, dragged.position];
+save(KEYS.feeds, feeds);
+render();
 });
 
 articlesContainer.addEventListener("click", event => {
-  const el = event.target.closest("[data-action]");
-  if (!el) return;
+const el = event.target.closest("[data-action]");
+if (!el) return;
 
-  const a = articles.find(item => item.id === el.dataset.id);
-  if (!a) return;
+const a = articles.find(item => item.id === el.dataset.id);
+if (!a) return;
 
-  const action = el.dataset.action;
-  if (action === "open") return openReader(a.id);
+const action = el.dataset.action;
+if (action === "open") return openReader(a.id);
 
-  if (action === "pin") a.pinned = !a.pinned;
-  if (action === "read") a.read = !a.read;
-  if (action === "hide") a.hidden = true;
+if (action === "pin") a.pinned = !a.pinned;
+if (action === "read") a.read = !a.read;
+if (action === "hide") a.hidden = true;
 
-  save(KEYS.articles, articles);
-  render();
+save(KEYS.articles, articles);
+render();
 });
 
 $("addFeedButton").addEventListener("click", () => openFeedModal());
@@ -864,37 +862,37 @@ feedModal.addEventListener("click", event => { if (event.target === feedModal) c
 refreshButton.addEventListener("click", refreshFeeds);
 
 unreadButton.addEventListener("click", () => {
-  settings.unreadOnly = !settings.unreadOnly;
-  save(KEYS.settings, settings);
-  render();
+settings.unreadOnly = !settings.unreadOnly;
+save(KEYS.settings, settings);
+render();
 });
 
 sortSelect.addEventListener("change", event => {
-  settings.sort = event.target.value;
-  save(KEYS.settings, settings);
-  render();
+settings.sort = event.target.value;
+save(KEYS.settings, settings);
+render();
 });
 
 let searchTimer;
 searchInput.addEventListener("input", event => {
-  settings.search = event.target.value;
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => { save(KEYS.settings, settings); render(); }, 150);
+settings.search = event.target.value;
+clearTimeout(searchTimer);
+searchTimer = setTimeout(() => { save(KEYS.settings, settings); render(); }, 150);
 });
 
 $("manageButton").addEventListener("click", event => {
-  event.target.textContent = document.body.classList.toggle("manage") ? "Done" : "Edit";
+event.target.textContent = document.body.classList.toggle("manage") ? "Done" : "Edit";
 });
 
 // Phones keep the page alive in the background, so refresh when you come back after a while
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !refreshButton.disabled && Date.now() - (settings.lastRefresh || 0) > 15 * 60 * 1000) {
-    refreshFeeds();
-  }
+if (!document.hidden && !refreshButton.disabled && Date.now() - (settings.lastRefresh || 0) > 15 * 60 * 1000) {
+refreshFeeds();
+}
 });
 
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape") { backFromReader(); closeFeedModal(); }
+if (event.key === "Escape") { backFromReader(); closeFeedModal(); }
 });
 
 /* ---------- Start ---------- */
@@ -902,14 +900,8 @@ document.addEventListener("keydown", event => {
 render(); // saved articles appear instantly
 
 // Then refresh in the background if the saved articles are over 15 minutes old
-const refreshIsDue =
-  !settings.lastRefresh ||
-  Date.now() - settings.lastRefresh > 15 * 60 * 1000;
-
-if (!articles.length || refreshIsDue) {
-  // Do not block the interface while feeds are loading.
-  void refreshFeeds();
-}
+if (!articles.length || Date.now() - (settings.lastRefresh || 0) > 15 * 60 * 1000) {
+refreshFeeds();
 }
 </script>
 </body>
