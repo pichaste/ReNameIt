@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1120" />
+<meta name="color-scheme" content="dark" />
 <title>Security News RSS Reader</title>
 <style>
 :root{--bg:#0b1120;--panel:#111827;--panel-2:#172033;--panel-3:#1f2937;--border:#2b374d;--text:#f8fafc;--muted:#94a3b8;--blue:#3b82f6;--blue-dark:#2563eb;--shadow:0 15px 40px rgba(0,0,0,.28)}
@@ -87,6 +89,46 @@ body.reading .toolbar,body.reading .articles{display:none}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
 @media(max-width:1100px){.app{grid-template-columns:230px minmax(0,1fr)}.details-panel{display:none}}
 @media(max-width:720px){.app{display:block}.sidebar{border-bottom:1px solid var(--border);border-right:0;padding:15px}.brand{margin-bottom:2px}.feed-list{flex-direction:row;overflow-x:auto;padding-bottom:3px}.feed-item{flex:0 0 auto}.feed-actions,.drag-handle{display:none!important}.main{padding:17px}.toolbar{display:block}.toolbar-controls{margin-top:15px}.search{max-width:none}.toolbar h1{font-size:24px}.reader h1{font-size:24px}}
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+body{-webkit-tap-highlight-color:transparent;padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#addFeedButton{width:100%}
+.manage-button,.move-feed{display:none}
+.reader-nav{background:var(--bg);margin:0 0 14px;padding:10px 0;position:sticky;top:0;z-index:3}
+.article-description[data-action]{cursor:pointer}
+.status:empty{display:none}
+@media(hover:none){.article:hover{border-color:var(--border);transform:none}}
+@media(pointer:coarse){.button,.icon-button{min-height:40px}.button.small{min-height:38px}}
+@media(max-width:720px){
+input,select{font-size:16px}
+.hide-sm,.subtitle,.section-title{display:none}
+.sidebar{align-items:center;display:flex;flex-wrap:wrap;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 14px 12px}
+.brand{flex:1;font-size:19px;margin:0}
+#addFeedButton{width:auto}
+.manage-button{display:inline-block}
+.feed-list{flex:0 0 100%;gap:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.feed-list::-webkit-scrollbar{display:none}
+.feed-item{border-color:var(--border);border-radius:20px;padding:8px 13px;white-space:nowrap}
+.feed-name{flex:none}
+body.manage .feed-actions{display:flex!important}
+body.manage .move-feed{display:inline-block}
+.status{flex:0 0 100%;margin:0}
+body.reading .sidebar{display:none}
+.main{padding:14px}
+.toolbar{margin-bottom:14px}
+.toolbar h1{font-size:22px}
+.toolbar-controls{display:grid;gap:8px;grid-template-columns:1fr auto auto;margin-top:12px}
+.search{grid-column:1/-1;max-width:none}
+.article{padding:14px}
+.article-title{font-size:17px}
+.article-top{align-items:flex-start;flex-direction:column;gap:3px}
+.article-bottom{align-items:stretch;flex-direction:column}
+.article-buttons{display:grid;grid-template-columns:repeat(4,1fr)}
+.article-buttons .button{padding:8px 4px;text-align:center}
+.reader-nav{padding-top:calc(10px + env(safe-area-inset-top))}
+.reader-body{font-size:18px;line-height:1.7}
+.modal-backdrop{align-items:flex-end;padding:0}
+.modal{border-radius:14px 14px 0 0;max-height:92vh;overflow-y:auto;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+}
 </style>
 </head>
 <body>
@@ -94,7 +136,8 @@ body.reading .toolbar,body.reading .articles{display:none}
   <aside class="sidebar">
     <div class="brand">Security Reader</div>
     <div class="subtitle">Security and technology news</div>
-    <button class="button primary" id="addFeedButton" style="width:100%">+ Add website</button>
+    <button class="button primary" id="addFeedButton">+ Add<span class="hide-sm"> website</span></button>
+    <button class="button manage-button" id="manageButton">Edit</button>
     <div class="section-title">Websites</div>
     <div class="feed-list" id="feedList"></div>
     <div class="status" id="status"></div>
@@ -258,10 +301,21 @@ function renderFeeds() {
         <span class="feed-name">${escapeHtml(f.name)}</span>
         <span class="feed-count">${unread(f.id)}</span>
         <span class="feed-actions">
+          <button class="icon-button move-feed" data-dir="-1" title="Move left">‹</button>
+          <button class="icon-button move-feed" data-dir="1" title="Move right">›</button>
           <button class="icon-button edit-feed" title="Edit">✎</button>
           <button class="icon-button delete-feed" title="Delete">×</button>
         </span>
       </div>`).join("");
+}
+
+function moveFeed(id, dir) {
+  const sorted = [...feeds].sort((a, b) => a.position - b.position);
+  const i = sorted.findIndex(f => f.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= sorted.length) return;
+  [sorted[i].position, sorted[j].position] = [sorted[j].position, sorted[i].position];
+  save(KEYS.feeds, feeds);
+  render();
 }
 
 function filteredArticles() {
@@ -313,7 +367,7 @@ function renderArticles() {
           <span>${a.pinned ? "★ Pinned · " : ""}${formatDate(a.publishedAt)}</span>
         </div>
         <h2 class="article-title" data-action="open" data-id="${id}">${escapeHtml(a.title)}</h2>
-        <p class="article-description">${escapeHtml(text.length > 280 ? text.slice(0, 280) + "…" : text)}</p>
+        <p class="article-description" data-action="open" data-id="${id}">${escapeHtml(text.length > 280 ? text.slice(0, 280) + "…" : text)}</p>
         <div class="article-bottom">
           <span class="article-date">${a.author ? escapeHtml(a.author) : ""}</span>
           <div class="article-buttons">
@@ -341,7 +395,7 @@ function renderDetails() {
     <h3 class="detail-title">${escapeHtml(a.title)}</h3>
     <p class="detail-description">${escapeHtml(stripHtml(a.description || "No description available."))}</p>
     <br />
-    <a class="button primary" href="${escapeHtml(a.url)}" target="_blank" rel="noopener noreferrer">Open original article</a>`;
+    <a class="button primary" href="${escapeHtml(absUrl(a.url) || "#")}" target="_blank" rel="noopener noreferrer">Open original article</a>`;
 }
 
 function render() {
@@ -404,7 +458,7 @@ async function fetchFeed(feed) {
       guid,
       feedId: feed.id,
       title: tag(item, "title"),
-      url: link,
+      url: absUrl(link, feed.url),
       description: stripHtml(raw).slice(0, 400),
       content: tag(item, "content:encoded") || tag(item, "content") || raw,
       author: tag(item, "dc:creator") || tag(item, "author"),
@@ -537,9 +591,14 @@ function extractArticle(html, url) {
   return sanitize(best.innerHTML, url);
 }
 
+let listScroll = 0;
+
 async function openReader(id) {
   const a = articles.find(item => item.id === id);
   if (!a) return;
+
+  listScroll = window.scrollY;
+  try { if (!history.state?.reader) history.pushState({ reader: 1 }, ""); } catch {}
 
   a.read = true;
   selectedArticleId = id;
@@ -548,7 +607,7 @@ async function openReader(id) {
   reader.innerHTML = `
     <div class="reader-nav">
       <button class="button" id="readerBack">← Back</button>
-      <a class="button" href="${escapeHtml(a.url)}" target="_blank" rel="noopener noreferrer">Original ↗</a>
+      <a class="button" href="${escapeHtml(absUrl(a.url) || "#")}" target="_blank" rel="noopener noreferrer">Original ↗</a>
     </div>
     <h1>${escapeHtml(a.title)}</h1>
     <div class="reader-meta">${escapeHtml(getFeedName(a.feedId))} · ${formatDate(a.publishedAt)}${a.author ? " · " + escapeHtml(a.author) : ""}</div>
@@ -557,7 +616,7 @@ async function openReader(id) {
   document.body.classList.add("reading");
   window.scrollTo(0, 0);
   document.querySelector(".main").scrollTop = 0;
-  $("readerBack").addEventListener("click", closeReader);
+  $("readerBack").addEventListener("click", backFromReader);
   render();
 
   const body = $("readerBody");
@@ -585,10 +644,20 @@ async function openReader(id) {
 }
 
 function closeReader() {
+  const wasOpen = reader.classList.contains("open");
   document.body.classList.remove("reading");
   reader.classList.remove("open");
   reader.innerHTML = "";
+  if (wasOpen) window.scrollTo(0, listScroll);
 }
+
+// Goes through browser history so the phone's back button/swipe closes the reader
+function backFromReader() {
+  if (history.state?.reader) history.back();
+  else closeReader();
+}
+
+window.addEventListener("popstate", closeReader);
 
 /* ---------- Feed modal ---------- */
 
@@ -637,6 +706,9 @@ feedList.addEventListener("click", event => {
   if (!item) return;
   const id = item.dataset.feedId;
 
+  const mover = event.target.closest(".move-feed");
+  if (mover) return moveFeed(id, Number(mover.dataset.dir));
+
   if (event.target.closest(".edit-feed")) return openFeedModal(id);
 
   if (event.target.closest(".delete-feed")) {
@@ -655,7 +727,8 @@ feedList.addEventListener("click", event => {
 
   settings.selectedFeed = id;
   save(KEYS.settings, settings);
-  closeReader();
+  listScroll = 0;
+  backFromReader();
   render();
 });
 
@@ -724,14 +797,26 @@ sortSelect.addEventListener("change", event => {
   render();
 });
 
+let searchTimer;
 searchInput.addEventListener("input", event => {
   settings.search = event.target.value;
-  save(KEYS.settings, settings);
-  render();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { save(KEYS.settings, settings); render(); }, 150);
+});
+
+$("manageButton").addEventListener("click", event => {
+  event.target.textContent = document.body.classList.toggle("manage") ? "Done" : "Edit";
+});
+
+// Phones keep the page alive in the background, so refresh when you come back after a while
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !refreshButton.disabled && Date.now() - (settings.lastRefresh || 0) > 15 * 60 * 1000) {
+    refreshFeeds();
+  }
 });
 
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape") { closeReader(); closeFeedModal(); }
+  if (event.key === "Escape") { backFromReader(); closeFeedModal(); }
 });
 
 /* ---------- Start ---------- */
