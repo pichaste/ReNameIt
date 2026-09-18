@@ -184,8 +184,13 @@ function save(key, value) {
   }
 }
 
+// crypto.randomUUID only exists on HTTPS/localhost pages, so fall back when it's missing
+const uuid = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+
 const newFeed = (name, url, siteUrl, position) =>
-  ({ id: crypto.randomUUID(), name, url, siteUrl, enabled: true, position });
+  ({ id: uuid(), name, url, siteUrl, enabled: true, position });
 
 let feeds = load(KEYS.feeds, null);
 if (!feeds) {
@@ -354,9 +359,12 @@ const PROXIES = [
   u => "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(u)
 ];
 
-// Tries every proxy at once and uses whichever answers first
+// Starts with the first proxy; backups only start if it is slow or failing (1s and 2s later)
 function fetchText(url, timeout = 8000) {
-  return Promise.any(PROXIES.map(async makeUrl => {
+  let settled = false;
+  return Promise.any(PROXIES.map(async (makeUrl, i) => {
+    if (i) await new Promise(r => setTimeout(r, i * 1000));
+    if (settled) throw new Error("Skipped");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     try {
@@ -364,6 +372,7 @@ function fetchText(url, timeout = 8000) {
       if (!res.ok) throw new Error(res.status);
       const text = await res.text();
       if (!text.trim()) throw new Error("Empty response");
+      settled = true;
       return text;
     } finally {
       clearTimeout(timer);
@@ -445,7 +454,8 @@ async function refreshFeeds() {
   refreshButton.textContent = "Refreshing…";
   setStatus(`Loaded 0 of ${enabled.length}…`);
 
-  let done = 0, failed = 0;
+  let done = 0;
+  const failedNames = [];
 
   // All feeds load in parallel; each appears as soon as it arrives
   await Promise.all(enabled.map(async feed => {
@@ -453,8 +463,8 @@ async function refreshFeeds() {
       mergeArticles(await fetchFeed(feed));
       render();
     } catch (error) {
-      console.error(error);
-      failed++;
+      console.warn(error.message);
+      failedNames.push(feed.name);
     }
     setStatus(`Loaded ${++done} of ${enabled.length}…`);
   }));
@@ -466,8 +476,9 @@ async function refreshFeeds() {
 
   refreshButton.disabled = false;
   refreshButton.textContent = "Refresh";
+  const failed = failedNames.length;
   setStatus(failed
-    ? `${enabled.length - failed} loaded, ${failed} failed.`
+    ? `${enabled.length - failed} loaded, ${failed} failed: ${failedNames.join(", ")}.`
     : `${enabled.length} website${enabled.length === 1 ? "" : "s"} loaded.`);
   render();
 }
@@ -611,7 +622,7 @@ feedForm.addEventListener("submit", event => {
     if (feed) Object.assign(feed, { name, url, siteUrl });
   } else {
     const next = feeds.reduce((max, f) => Math.max(max, f.position), -1) + 1;
-    feeds.push({ id: crypto.randomUUID(), name, url, siteUrl, enabled: true, position: next });
+    feeds.push({ id: uuid(), name, url, siteUrl, enabled: true, position: next });
   }
 
   save(KEYS.feeds, feeds);
